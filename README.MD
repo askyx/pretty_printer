@@ -179,3 +179,66 @@ $2 = [commandType: CMD_SELECT, queryId: 0, hasReturning: false, hasModifyingCTE:
     * print page
     * wal
     * tx
+
+
+## questions
+
+### query中多层子查询
+
+单独解析 Query 中的 rtable
+
+
+```sql
+
+select * from ta where (ta.a, ta.b) < (select a+1, b from tb where ta.a = tb.a);
+
+$57 = CMD_SELECT = {
+  rtable = List with 1 elements = {
+    0 = RangeTblEntry: [kind: RTE_RELATION     , alias: 'ta'             , relid:    16389, relkind: 114 'r']
+  },
+  jointree = FromExpr = {
+    fromlist = List with 1 elements = {
+      0 = RangeTblRef: 1
+    },
+    quals = SubLink[subLinkType: ROWCOMPARE_SUBLINK, subLinkId: 0] = {
+      testexpr = RowCompareExpr[rctype: ROWCOMPARE_LT] = {
+        opnos = OidList with 2 elements = {97, 97},
+        opfamilies = OidList with 2 elements = {1976, 1976},
+        inputcollids = OidList with 2 elements = {0, 0},
+        largs = List with 2 elements = {
+          0 = ta.a,
+          1 = ta.b
+        },
+        rargs = List with 2 elements = {
+          0 = Param[paramkind: PARAM_SUBLINK, paramid: 1, paramtype: 23, paramtypmod: -1, paramcollid: 0],
+          1 = Param[paramkind: PARAM_SUBLINK, paramid: 2, paramtype: 23, paramtypmod: -1, paramcollid: 0]
+        }
+      },
+      operName = List with 1 elements = {
+        0 = <
+      },
+      subselect = CMD_SELECT = {
+        rtable = List with 1 elements = {
+          0 = RangeTblEntry: [kind: RTE_RELATION     , alias: 'tb'             , relid:    24599, relkind: 114 'r']
+        },
+        jointree = FromExpr = {
+          fromlist = List with 1 elements = {
+            0 = RangeTblRef: 1
+          },
+          quals = (ta.a = ta.a)
+        },
+        targetList = List with 2 elements = {
+          0 = "?column?" = {(ta.a + 1)},
+          1 = "b" = {ta.b}
+        }
+      }
+    }
+  },
+  targetList = List with 2 elements = {
+    0 = "a" = {ta.a},
+    1 = "b" = {ta.b}
+  }
+}
+
+
+```
