@@ -1,7 +1,7 @@
 import gdb
 import string
 
-printer = gdb.printing.RegexpCollectionPrettyPrinter("PostgreSQL 17devel")
+printer = gdb.printing.RegexpCollectionPrettyPrinter("PostgreSQL 16beta2")
 
 class printerRtes(gdb.Parameter):
     def __init__(self) -> None:
@@ -16,7 +16,7 @@ class printerRtes(gdb.Parameter):
         node = cast(self.rtes, 'List').dereference()
         print(node)
         return ''
-    
+
     def get_show_string(self, svalue: str) -> str:
         if self.rtes != None:
             node = cast(self.rtes, 'List').dereference()
@@ -27,7 +27,23 @@ class printerRtes(gdb.Parameter):
         node = cast(self.rtes, 'List')
         return node['elements'][index - 1]
 
+class printerTurn(gdb.Parameter):
+    def __init__(self) -> None:
+        super(printerTurn, self).__init__('pg_print', gdb.COMMAND_DATA, gdb.PARAM_BOOLEAN)
+        self.value = True
+
+    def get_set_string(self) -> str:
+        if self.value == False:
+            for p in printer.subprinters:
+                p.enabled = False
+        else:
+            for p in printer.subprinters:
+                p.enabled = True
+
+        return ''
+
 rtes = printerRtes()
+printerTurn()
 
 class PgType:
     def __init__(self) -> None:
@@ -67,24 +83,11 @@ def register_printer(name):
         printer.add_printer(name, '^' + name + '$', _printer)
     return __registe
 
-def is_a(n, t):
-    if not is_node(n):
-        return False
-
-    return (str(n['type']) == ('T_' + t))
-
 def get_node_type(node):
     type = str(node['type'])[2:]
     if type == 'Bitmapset':
         return 'Relids'
     return type
-
-def is_node(l):
-    try:
-        x = l['type']
-        return True
-    except:
-        return False
 
 # max print 100
 def getchars(arg, qoute = True, len = 100):
@@ -118,17 +121,17 @@ class ListIt(object):
         self.elements = list['elements']
         self.size = list['length']
         self.count = 0
-      
+
     def __iter__(self):
         return self
-    
+
     def __len__(self):
         return int(self.size)
-    
+
     def __next__(self):
         if self.count == self.size:
             raise StopIteration
-        
+
         result = self.elements[self.count]
         self.count += 1
 
@@ -139,9 +142,6 @@ def add_list(list, val, filde):
         list.append((filde, val[filde].dereference()))
 
 def plan_to_string(type, plan):
-    '''
-    print plan
-    '''
     return '%s (cost=%.2f..%.2f rows=%.0f width=%.0f plan_node_id=%s)' %(
         type,
         float(plan['startup_cost']),
@@ -201,56 +201,20 @@ class Printer:
 
         return ret
 
-    def to_string(self):
-        pass
-
     def children_pretty(self, *args):
         list = []
         for arg in args:
             add_list(list, self.val, arg)
         return list
-    
-    def children(self):
-        pass
-
-    def display_hint(self):
-        pass
 
 @register_printer('Query')
-class QueryPrinter:
-    'print Query'
-    def __init__(self, val) -> None:
-        self.val = val
-
-    def add_list(self, filde):
-        if str(self.val[filde]) != '0x0':
-            return (filde, self.val[filde].dereference())
-
+class QueryPrinter(Printer):
     def to_string(self):
         return str(self.val['commandType'])
 
     def children(self):
-        list = []
-        add_list(list, self.val, 'cteList')
-        add_list(list, self.val, 'utilityStmt')
-        add_list(list, self.val, 'rtable')
-        add_list(list, self.val, 'jointree')
-        add_list(list, self.val, 'targetList')
-        add_list(list, self.val, 'onConflict')
-        add_list(list, self.val, 'returningList')
-        add_list(list, self.val, 'groupClause')
-        add_list(list, self.val, 'groupingSets')
-        add_list(list, self.val, 'havingQual')
-        add_list(list, self.val, 'windowClause')
-        add_list(list, self.val, 'distinctClause')
-        add_list(list, self.val, 'sortClause')
-        add_list(list, self.val, 'limitOffset')
-        add_list(list, self.val, 'rowMarks')
-        add_list(list, self.val, 'setOperations')
-        add_list(list, self.val, 'constraintDeps')
-        add_list(list, self.val, 'withCheckOptions')
-        return list
-    
+        return self.children_pretty('cteList' ,'utilityStmt' ,'rtable' ,'jointree' ,'targetList' ,'onConflict' ,'returningList' ,'groupClause' ,'groupingSets' ,'havingQual' ,'windowClause' ,'distinctClause' ,'sortClause' ,'limitOffset' ,'rowMarks' ,'setOperations' ,'constraintDeps' ,'withCheckOptions')
+
 @register_printer('List')
 class ListPrinter:
     'print List'
@@ -262,11 +226,10 @@ class ListPrinter:
 
         def __iter__(self):
             return self
-        
+
         def __next__(self):
             node = next(self.it)
             if str(self.type) == 'List':
-                # if is_node(node['ptr_value']):
                 try:
                     node = cast(node['ptr_value'], 'Node').dereference()
                 except:
@@ -288,10 +251,10 @@ class ListPrinter:
 
     def to_string(self):
         return '%s with %s elements' % (self.type, self.val['length'])
-    
+
     def children(self):
         return self._iter(ListIt(self.val), self.type)
-    
+
     def display_hint(self):
         if self.type == 'List':
             return None
@@ -357,53 +320,26 @@ class RelidsPrinter:
         return 'Relids:' + ret
 
 @register_printer('FuncExpr')
-class FuncExprPrinter:
-    def __init__(self, val) -> None:
-        self.val = val
-
+class FuncExprPrinter(Printer):
     def to_string(self):
-        return 'FuncExpr[funcid: %s, funcresulttype: %s, funcretset: %s, funcvariadic: %s, funcformat: %s, funccollid: %s, inputcollid: %s]' % (
-            self.val['funcid'],
-            self.val['funcresulttype'],
-            self.val['funcretset'],
-            self.val['funcvariadic'],
-            self.val['funcformat'],
-            self.val['funccollid'],
-            self.val['inputcollid']
-        )
-    
+        return self.to_string_pretty('FuncExpr', 'funcid' ,'funcresulttype' ,'funcretset' ,'funcvariadic' ,'funcformat' ,'funccollid' ,'inputcollid')
+
     def children(self):
-        list = []
-        add_list(list, self.val, 'args')
-        return list
+        return self.children_pretty('args')
 
 @register_printer('RowExpr')
-class RowExprPrinter:
-    def __init__(self, val) -> None:
-        self.val = val
-
+class RowExprPrinter(Printer):
     def to_string(self):
-        return 'RowExpr[row_typeid: %s, row_format: %s]' % (
-            self.val['row_typeid'],
-            self.val['row_format'],
-        )
-    
+        return self.to_string_pretty('RowExpr', 'row_typeid', 'row_format')
+
     def children(self):
-        list = []
-        add_list(list, self.val, 'args')
-        add_list(list, self.val, 'colnames')
-        return list
+        return self.children_pretty('args', 'colnames')
 
 @register_printer('ParamRef')
-class ParamRefPrinter:
-    def __init__(self, val) -> None:
-        self.val = val
-
+class ParamRefPrinter(Printer):
     def to_string(self):
-        return 'ParamRef[number: %s]' % (
-            self.val['number'],
-        )
-    
+        return self.to_string_pretty('ParamRef', 'number')
+
 @register_printer('ColumnRef')
 class ColumnRefPrinter:
     def __init__(self, val) -> None:
@@ -425,7 +361,7 @@ class ColumnRefPrinter:
             )
         else:
             return "ColumnRef['%s']" % col
-    
+
     def children(self):
         list = []
         if gdb.parameter('pg_verbose') == True:
@@ -433,26 +369,17 @@ class ColumnRefPrinter:
         return list
 
 @register_printer('ResTarget')
-class ResTargetPrinter:
-    def __init__(self, val) -> None:
-        self.val = val
-
+class ResTargetPrinter(Printer):
     def to_string(self):
         return 'ResTarget[name: %s]' % (
             getchars(self.val['name'], False),
         )
-    
+
     def children(self):
-        list = []
-        add_list(list, self.val, 'indirection')
-        add_list(list, self.val, 'val')
-        return list
+        return self.children_pretty('indirection', 'val')
 
 @register_printer('ValUnion')
-class ValUnionPrinter:
-    def __init__(self, val) -> None:
-        self.val = val
-
+class ValUnionPrinter(Printer):
     def to_string(self):
         vt = str(self.val['node']['type'])[2:]
         ret = ''
@@ -472,34 +399,22 @@ class ValUnionPrinter:
         )
 
 @register_printer('A_Const')
-class A_ConstPrinter:
-    def __init__(self, val) -> None:
-        self.val = val
-
+class A_ConstPrinter(Printer):
     def to_string(self):
         return 'A_Const[ %s ]' % (
             self.val['val'],
         )
 
 @register_printer('CollateClause')
-class CollateClausePrinter:
-    def __init__(self, val) -> None:
-        self.val = val
-
+class CollateClausePrinter(Printer):
     def to_string(self):
         return 'CollateClause'
-    
+
     def children(self):
-        list = []
-        add_list(list, self.val, 'arg')
-        add_list(list, self.val, 'collname')
-        return list
+        return self.children_pretty('arg', 'collname')
 
 @register_printer('RoleSpec')
-class RoleSpecPrinter:
-    def __init__(self, val) -> None:
-        self.val = val
-
+class RoleSpecPrinter(Printer):
     def to_string(self):
         return 'RoleSpec[roletype: %s, rolename: %s]' % (
             self.val['roletype'],
@@ -507,70 +422,36 @@ class RoleSpecPrinter:
         )
 
 @register_printer('FuncCall')
-class FuncCallPrinter:
-    def __init__(self, val) -> None:
-        self.val = val
-
+class FuncCallPrinter(Printer):
     def to_string(self):
-        return 'FuncCall[agg_within_group: %s, agg_star: %s, agg_distinct: %s, func_variadic: %s, funcformat: %s]' % (
-            self.val['agg_within_group'],
-            self.val['agg_star'],
-            self.val['agg_distinct'],
-            self.val['func_variadic'],
-            self.val['funcformat'],
-        )
-    
+        return self.to_string_pretty('FuncCall', 'agg_within_group' ,'agg_star' ,'agg_distinct' ,'func_variadic' ,'funcformat')
+
     def children(self):
-        list = []
-        add_list(list, self.val, 'funcname')
-        add_list(list, self.val, 'args')
-        add_list(list, self.val, 'agg_order')
-        add_list(list, self.val, 'agg_filter')
-        add_list(list, self.val, 'over')
-        return list 
+        return self.children_pretty('funcname', 'args', 'agg_order', 'agg_filter', 'over')
 
 @register_printer('A_Indices')
-class A_IndicesPrinter:
-    def __init__(self, val) -> None:
-        self.val = val
-
+class A_IndicesPrinter(Printer):
     def to_string(self):
-        return 'A_Indices[is_slice: %s]' % (
-            self.val['is_slice'],
-        )
-    
+        return self.to_string_pretty('A_Indices', 'is_slice')
+
     def children(self):
-        list = []
-        add_list(list, self.val, 'lidx')
-        add_list(list, self.val, 'uidx')
-        return list
+        return self.children_pretty('lidx', 'uidx')
 
 @register_printer('A_Indirection')
-class A_IndirectionPrinter:
-    def __init__(self, val) -> None:
-        self.val = val
-
+class A_IndirectionPrinter(Printer):
     def to_string(self):
         return 'A_Indirection'
-    
+
     def children(self):
-        list = []
-        add_list(list, self.val, 'arg')
-        add_list(list, self.val, 'indirection')
-        return list
+        return self.children_pretty('arg', 'indirection')
 
 @register_printer('A_ArrayExpr')
-class A_ArrayExprPrinter:
-    def __init__(self, val) -> None:
-        self.val = val
-
+class A_ArrayExprPrinter(Printer):
     def to_string(self):
         return 'A_ArrayExpr'
-    
+
     def children(self):
-        list = []
-        add_list(list, self.val, 'elements')
-        return list
+        return self.children_pretty('elements')
 
 @register_printer('MultiAssignRef')
 class MultiAssignRefPrinter:
@@ -581,7 +462,7 @@ class MultiAssignRefPrinter:
         return 'MultiAssignRef[colno: %s]' % (
             self.val['colno'],
         )
-    
+
     def children(self):
         list = []
         add_list(list, self.val, 'source')
@@ -597,7 +478,7 @@ class SortByPrinter:
             self.val['sortby_dir'],
             self.val['sortby_nulls'],
         )
-    
+
     def children(self):
         list = []
         add_list(list, self.val, 'node')
@@ -615,7 +496,7 @@ class WindowDefPrinter:
             getchars(self.val['refname']),
             self.val['frameOptions'],
         )
-    
+
     def children(self):
         list = []
         add_list(list, self.val, 'partitionClause')
@@ -633,7 +514,7 @@ class RangeSubselectPrinter:
         return 'RangeSubselect[lateral: %s]' % (
             self.val['lateral'],
         )
-    
+
     def children(self):
         list = []
         add_list(list, self.val, 'subquery')
@@ -651,7 +532,7 @@ class RangeFunctionPrinter:
             self.val['ordinality'],
             self.val['is_rowsfrom'],
         )
-    
+
     def children(self):
         list = []
         add_list(list, self.val, 'functions')
@@ -668,7 +549,7 @@ class RangeTableFuncPrinter:
         return 'RangeTableFunc[lateral: %s]' % (
             self.val['lateral'],
         )
-    
+
     def children(self):
         list = []
         add_list(list, self.val, 'docexpr')
@@ -679,17 +560,14 @@ class RangeTableFuncPrinter:
         return list
 
 @register_printer('RangeTableFuncCol')
-class RangeTableFuncColPrinter:
-    def __init__(self, val) -> None:
-        self.val = val
-
+class RangeTableFuncColPrinter(Printer):
     def to_string(self):
         return 'RangeTableFuncCol[colname: %s, for_ordinality: %s, is_not_null: %s]' % (
             getchars(self.val['colname']),
             self.val['for_ordinality'],
             self.val['is_not_null'],
         )
-    
+
     def children(self):
         list = []
         add_list(list, self.val, 'typeName')
@@ -704,7 +582,7 @@ class RangeTableSamplePrinter:
 
     def to_string(self):
         return 'RangeTableSample'
-    
+
     def children(self):
         list = []
         add_list(list, self.val, 'relation')
@@ -714,10 +592,7 @@ class RangeTableSamplePrinter:
         return list
 
 @register_printer('ColumnDef')
-class ColumnDefPrinter:
-    def __init__(self, val) -> None:
-        self.val = val
-
+class ColumnDefPrinter(Printer):
     def to_string(self):
         return 'ColumnDef[colname: %s, compression: %s, inhcount: %s, is_local: %s, is_not_null: %s, is_from_type: %s, storage: %s, identity: %s, generated: %s, collOid: %s]' % (
             getchars(self.val['colname']),
@@ -731,39 +606,20 @@ class ColumnDefPrinter:
             self.val['generated'],
             self.val['collOid'],
         )
-    
+
     def children(self):
-        list = []
-        add_list(list, self.val, 'typeName')
-        add_list(list, self.val, 'raw_default')
-        add_list(list, self.val, 'cooked_default')
-        add_list(list, self.val, 'identitySequence')
-        add_list(list, self.val, 'collClause')
-        add_list(list, self.val, 'constraints')
-        add_list(list, self.val, 'fdwoptions')
-        return list
+        return self.children_pretty('typeName' ,'raw_default' ,'cooked_default' ,'identitySequence' ,'collClause' ,'constraints' ,'fdwoptions')
 
 @register_printer('TableLikeClause')
-class TableLikeClausePrinter:
-    def __init__(self, val) -> None:
-        self.val = val
-
+class TableLikeClausePrinter(Printer):
     def to_string(self):
-        return 'TableLikeClause[options: %s, relationOid: %s]' % (
-            self.val['options'],
-            self.val['relationOid'],
-        )
-    
+        return self.to_string_pretty('TableLikeClause', 'options', 'relationOid')
+
     def children(self):
-        list = []
-        add_list(list, self.val, 'relation')
-        return list
+        return self.children_pretty('relation')
 
 @register_printer('IndexElem')
-class IndexElemPrinter:
-    def __init__(self, val) -> None:
-        self.val = val
-
+class IndexElemPrinter(Printer):
     def to_string(self):
         return 'IndexElem[name: %s, indexcolname: %s, ordering: %s, nulls_ordering: %s]' % (
             getchars(self.val['name']),
@@ -771,80 +627,48 @@ class IndexElemPrinter:
             self.val['ordering'],
             self.val['nulls_ordering'],
         )
-    
+
     def children(self):
-        list = []
-        add_list(list, self.val, 'expr')
-        add_list(list, self.val, 'collation')
-        add_list(list, self.val, 'opclass')
-        add_list(list, self.val, 'opclassopts')
-        add_list(list, self.val, 'expr')
-        return list
+        return self.children_pretty('expr' ,'collation' ,'opclass' ,'opclassopts' ,'expr')
 
 @register_printer('DefElem')
-class DefElemPrinter:
-    def __init__(self, val) -> None:
-        self.val = val
-
+class DefElemPrinter(Printer):
     def to_string(self):
         return 'DefElem[defnamespace: %s, defname: %s, defaction: %s]' % (
             getchars(self.val['defnamespace']),
             getchars(self.val['defname']),
             self.val['defaction'],
         )
-    
+
     def children(self):
-        list = []
-        add_list(list, self.val, 'arg')
-        return list
+        return self.children_pretty('arg')
 
 @register_printer('LockingClause')
-class LockingClausePrinter:
-    def __init__(self, val) -> None:
-        self.val = val
-
+class LockingClausePrinter(Printer):
     def to_string(self):
-        return 'LockingClause[strength: %s, waitPolicy: %s]' % (
-            self.val['strength'],
-            self.val['waitPolicy'],
-        )
-    
+        return self.to_string_pretty('LockingClause', 'strength', 'waitPolicy')
+
     def children(self):
-        list = []
-        add_list(list, self.val, 'lockedRels')
-        return list
+        return self.children_pretty('lockedRels')
 
 @register_printer('XmlSerialize')
-class XmlSerializePrinter:
-    def __init__(self, val) -> None:
-        self.val = val
-
+class XmlSerializePrinter(Printer):
     def to_string(self):
-        return 'LockingClause[xmloption: %s, indent: %s]' % (
-            self.val['xmloption'],
-            self.val['indent'],
-        )
-    
+        return self.to_string_pretty('XmlSerialize', 'xmloption', 'indent')
+
     def children(self):
-        list = []
-        add_list(list, self.val, 'expr')
-        add_list(list, self.val, 'typeName')
-        return list
+        return self.children_pretty('expr', 'typeName')
 
 @register_printer('A_Expr')
 class A_ExprPrinter(Printer):
-
     def to_string(self):
         return self.to_string_pretty('A_Expr', 'kind')
-    
+
     def children(self):
         return self.children_pretty('name', 'lexpr', 'rexpr')
 
 @register_printer('RangeVar')
-class RangeVarPrinter:
-    def __init__(self, val) -> None:
-        self.val = val
-
+class RangeVarPrinter(Printer):
     def to_string(self):
         strs = ''
         if str(self.val['catalogname']):
@@ -858,341 +682,149 @@ class RangeVarPrinter:
             self.val['inh'],
             self.val['relpersistence'],
         )
-    
+
     def children(self):
-        list = []
-        add_list(list, self.val, 'alias')
-        return list
+        return self.children_pretty('alias')
 
 @register_printer('SelectStmt')
-class SelectStmtPrinter:
-    def __init__(self, val) -> None:
-        self.val = val
-
+class SelectStmtPrinter(Printer):
     def to_string(self):
-        return 'SelectStmt[groupDistinct: %s, op: %s, all: %s]' % (
-            self.val['groupDistinct'],
-            self.val['op'],
-            self.val['all'],
-        )
-    
+        return self.to_string_pretty('SelectStmt', 'groupDistinct', 'op', 'all', 'limitOption')
+
     def children(self):
-        list = []
-        add_list(list, self.val, 'distinctClause')
-        add_list(list, self.val, 'intoClause')
-        add_list(list, self.val, 'targetList')
-        add_list(list, self.val, 'fromClause')
-        add_list(list, self.val, 'whereClause')
-        add_list(list, self.val, 'groupClause')
-        add_list(list, self.val, 'havingClause')
-        add_list(list, self.val, 'windowClause')
-        add_list(list, self.val, 'valuesLists')
-        add_list(list, self.val, 'sortClause')
-        add_list(list, self.val, 'limitOffset')
-        add_list(list, self.val, 'limitCount')
-        if str(self.val['limitOffset']) != '0x0' or str(self.val['limitCount']) != '0x0':
-            list.append(('limitOption', self.val['limitOption']))
-        add_list(list, self.val, 'lockingClause')
-        add_list(list, self.val, 'withClause')
-        add_list(list, self.val, 'larg')
-        add_list(list, self.val, 'rarg')
-        return list
+        return self.children_pretty('distinctClause' ,'intoClause' ,'targetList' ,'fromClause' ,'whereClause' ,'groupClause' ,'havingClause' ,'windowClause' ,'valuesLists' ,'sortClause' ,'limitOffset' ,'limitCount' ,'lockingClause' ,'withClause' ,'larg' ,'rarg')
+        # if str(self.val['limitOffset']) != '0x0' or str(self.val['limitCount']) != '0x0':
+        #     list.append(('limitOption', self.val['limitOption']))
 
 @register_printer('RowCompareExpr')
-class RowCompareExprPrinter:
-    def __init__(self, val) -> None:
-        self.val = val
-
+class RowCompareExprPrinter(Printer):
     def to_string(self):
-        return 'RowCompareExpr[rctype: %s]' % (
-            self.val['rctype'],
-        )
-    
+        return self.to_string_pretty('RowCompareExpr', 'rctype')
+
     def children(self):
-        list = []
-        add_list(list, self.val, 'opnos')
-        add_list(list, self.val, 'opfamilies')
-        add_list(list, self.val, 'inputcollids')
-        add_list(list, self.val, 'largs')
-        add_list(list, self.val, 'rargs')
-        return list
+        return self.children_pretty('opnos' ,'opfamilies' ,'inputcollids' ,'largs' ,'rargs')
 
 @register_printer('AlternativeSubPlan')
-class AlternativeSubPlanPrinter:
-    def __init__(self, val) -> None:
-        self.val = val
-
+class AlternativeSubPlanPrinter(Printer):
     def to_string(self):
         return 'AlternativeSubPlan'
-    
+
     def children(self):
-        list = []
-        add_list(list, self.val, 'subplans')
-        return list
+        return self.children_pretty('subplans')
 
 @register_printer('TypeCast')
-class TypeCastPrinter:
-    def __init__(self, val) -> None:
-        self.val = val
-
+class TypeCastPrinter(Printer):
     def to_string(self):
         return 'TypeCast'
-    
+
     def children(self):
-        list = []
-        add_list(list, self.val, 'arg')
-        add_list(list, self.val, 'typeName')
-        return list
+        return self.children_pretty('arg', 'typeName')
 
 @register_printer('TypeName')
 class TypeNamePrinter(Printer):
-
     def to_string(self):
         return self.to_string_pretty('TypeName', 'typeOid', 'setof', 'pct_type', 'typemod')
-    
+
     def children(self):
         return self.children_pretty('names', 'typmods', 'arrayBounds')
 
 @register_printer('Alias')
-class AliasPrinter:
-    def __init__(self, val) -> None:
-        self.val = val
-
+class AliasPrinter(Printer):
     def to_string(self):
         return 'Alias[aliasname: %s]' % (
             getchars(self.val['aliasname'])
         )
-    
+
     def children(self):
-        list = []
-        add_list(list, self.val, 'colnames')
-        return list
+        return self.children_pretty('colnames')
 
 @register_printer('RawStmt')
-class RawStmtPrinter:
-    def __init__(self, val) -> None:
-        self.val = val
-
+class RawStmtPrinter(Printer):
     def to_string(self):
         return 'RawStmt'
-    
+
     def children(self):
-        list = []
-        add_list(list, self.val, 'stmt')
-        return list
+        return self.children_pretty('stmt')
 
 @register_printer('SubLink')
-class SubLinkPrinter:
-    def __init__(self, val) -> None:
-        self.val = val
-
+class SubLinkPrinter(Printer):
     def to_string(self):
-        return 'SubLink[subLinkType: %s, subLinkId: %s]' % (
-            self.val['subLinkType'],
-            self.val['subLinkId'],
-        )
-    
+        return self.to_string_pretty('SubLink', 'subLinkType', 'subLinkId')
+
     def children(self):
-        list = []
-        add_list(list, self.val, 'testexpr')
-        add_list(list, self.val, 'operName')
-        add_list(list, self.val, 'subselect')
-        return list
+        return self.children_pretty('testexpr', 'operName', 'subselect')
 
 @register_printer('FieldSelect')
-class SubLinkPrinter:
-    def __init__(self, val) -> None:
-        self.val = val
-
+class FieldSelectPrinter(Printer):
     def to_string(self):
-        return 'FieldSelect[fieldnum: %s, resulttype: %s, resulttypmod: %s, resultcollid: %s]' % (
-            self.val['fieldnum'],
-            self.val['resulttype'],
-            self.val['resulttypmod'],
-            self.val['resultcollid'],
-        )
-    
+        return self.to_string_pretty('FieldSelect', 'fieldnum', 'resulttype', 'resulttypmod', 'resultcollid')
+
     def children(self):
-        list = []
-        add_list(list, self.val, 'arg')
-        return list
+        return self.children_pretty('arg')
 
 @register_printer('FieldStore')
-class SubLinkPrinter:
-    def __init__(self, val) -> None:
-        self.val = val
-
+class FieldStorePrinter(Printer):
     def to_string(self):
-        return 'FieldStore[resulttype: %s]' % (
-            self.val['resulttype'],
-        )
-    
-    def children(self):
-        list = []
-        add_list(list, self.val, 'arg')
-        add_list(list, self.val, 'newvals')
-        add_list(list, self.val, 'fieldnums')
-        return list
+        return self.to_string_pretty('FieldStore', 'resulttype')
 
-@register_printer('ReduceInfo')
-class ReduceInfoPrinter:
-    def __init__(self, val) -> None:
-        self.val = val
-
-    def to_string(self):
-        return 'ReduceInfo[type: %s, nkey: %s]' % (
-            self.val['type'],
-            self.val['nkey'],
-        )
-    
     def children(self):
-        list = []
-        add_list(list, self.val, 'storage_nodes')
-        add_list(list, self.val, 'exclude_exec')
-        add_list(list, self.val, 'values')
-        add_list(list, self.val, 'relids')
-        nkey = int(self.val['nkey'])
-        while nkey > 0:
-            nkey -= 1
-            list.append(('keys' + str(nkey), self.val['keys'][nkey].dereference()))
-        return list
+        return self.children_pretty('arg', 'newvals', 'fieldnums')
 
 @register_printer('SubscriptingRef')
-class SubscriptingRefPrinter:
-    def __init__(self, val) -> None:
-        self.val = val
-
+class SubscriptingRefPrinter(Printer):
     def to_string(self):
-        return 'SubscriptingRef[refcontainertype: %s, refelemtype: %s, reftypmod: %s, refcollid: %s]' % (
-            self.val['refcontainertype'],
-            self.val['refelemtype'],
-            self.val['reftypmod'],
-            self.val['refcollid'],
-        )
-    
+        return self.to_string_pretty('SubscriptingRef', 'refcontainertype' ,'refelemtype' ,'reftypmod' ,'refcollid')
+
     def children(self):
-        list = []
-        add_list(list, self.val, 'refupperindexpr')
-        add_list(list, self.val, 'reflowerindexpr')
-        add_list(list, self.val, 'refexpr')
-        add_list(list, self.val, 'refassgnexpr')
-        return list
+        return self.children_pretty('args', 'refupperindexpr', 'reflowerindexpr', 'refexpr', 'refassgnexpr')
 
 @register_printer('CoalesceExpr')
-class CoalesceExprPrinter:
-    def __init__(self, val) -> None:
-        self.val = val
-
+class CoalesceExprPrinter(Printer):
     def to_string(self):
-        return 'CoalesceExpr[coalescetype: %s, coalescecollid: %s]' % (
-            self.val['coalescetype'],
-            self.val['coalescecollid'],
-        )
-    
+        return self.to_string_pretty('CoalesceExpr', 'coalescetype', 'coalescecollid')
+
     def children(self):
-        list = []
-        add_list(list, self.val, 'args')
-        return list
+        return self.children_pretty('args')
 
 @register_printer('CaseExpr')
-class CaseExprPrinter:
-    def __init__(self, val) -> None:
-        self.val = val
-
+class CaseExprPrinter(Printer):
     def to_string(self):
-        return '[casetype: %s, casecollid: %s]' % (self.val['casetype'], self.val['casecollid'])
+        return self.to_string_pretty('CaseExpr', 'casetype', 'casecollid')
 
     def children(self):
-        list = []
-        add_list(list, self.val, 'arg')
-        add_list(list, self.val, 'args')
-        add_list(list, self.val, 'defresult')
-        return list
+        return self.children_pretty('arg', 'args', 'defresult')
 
 @register_printer('Param')
-class ParamPrinter:
-    def __init__(self, val) -> None:
-        self.val = val
-
+class ParamPrinter(Printer):
     def to_string(self):
-        return 'Param[paramkind: %s, paramid: %s, paramtype: %s, paramtypmod: %s, paramcollid: %s]' % (
-            self.val['paramkind'],
-            self.val['paramid'],
-            self.val['paramtype'],
-            self.val['paramtypmod'],
-            self.val['paramcollid']
-        )
+        return self.to_string_pretty('Param', 'paramkind' ,'paramid' ,'paramtype' ,'paramtypmod' ,'paramcollid')
 
 @register_printer('PlannerParamItem')
-class PlannerParamItemPrinter:
-    def __init__(self, val) -> None:
-        self.val = val
-
+class PlannerParamItemPrinter(Printer):
     def to_string(self):
-        return '[paramId: %s]' % (
-            self.val['paramId'],
-        )
-    
+        return self.to_string_pretty('PlannerParamItem', 'paramId')
+
     def children(self):
-        list = []
-        add_list(list, self.val, 'item')
-        return list
+        return self.children_pretty('item')
 
 @register_printer('RestrictInfo')
-class RestrictInfoPrinter:
-    def __init__(self, val) -> None:
-        self.val = val
-
+class RestrictInfoPrinter(Printer):
     def to_string(self):
-        return 'RestrictInfo [is_pushed_down: %s, outerjoin_delayed: %s, can_join: %s, pseudoconstant: %s, leakproof: %s, security_level: %s, clause_relids: %s, required_relids: %s, outer_relids: %s, nullable_relids: %s, left_relids: %s, right_relids: %s, eval_cost: %s]' % (
-            self.val['is_pushed_down'],
-            self.val['outerjoin_delayed'],
-            self.val['can_join'],
-            self.val['pseudoconstant'],
-            self.val['leakproof'],
-            self.val['security_level'],
-            self.val['clause_relids'],
-            self.val['required_relids'],
-            self.val['outer_relids'],
-            self.val['nullable_relids'],
-            self.val['left_relids'],
-            self.val['right_relids'],
-            self.val['eval_cost'],
-        )
-    
-    def children(self):
-        list = []
-        add_list(list, self.val, 'clause')
-        add_list(list, self.val, 'orclause')
-        add_list(list, self.val, 'parent_ec')
-        add_list(list, self.val, 'mergeopfamilies')
-        add_list(list, self.val, 'left_ec')
-        add_list(list, self.val, 'right_ec')
-        add_list(list, self.val, 'left_em')
-        add_list(list, self.val, 'right_em')
-        add_list(list, self.val, 'scansel_cache')
-        return list
+        return self.to_string_pretty('RestrictInfo', 'is_pushed_down' ,'outerjoin_delayed' ,'can_join' ,'pseudoconstant' ,'leakproof' ,'security_level' ,'clause_relids' ,'required_relids' ,'outer_relids' ,'nullable_relids' ,'left_relids' ,'right_relids' ,'eval_cost')
 
+    def children(self):
+        return self.children_pretty('clause' ,'orclause' ,'parent_ec' ,'mergeopfamilies' ,'left_ec' ,'right_ec' ,'left_em' ,'right_em' ,'scansel_cache')
 
 @register_printer('CaseWhen')
-class CaseWhenPrinter:
-    def __init__(self, val) -> None:
-        self.val = val
-
+class CaseWhenPrinter(Printer):
     def to_string(self):
         return 'CaseWhen'
 
     def children(self):
-        list = []
-        add_list(list, self.val, 'expr')
-        add_list(list, self.val, 'result')
-        return list
+        return self.children_pretty('expr', 'result')
 
 @register_printer('TargetEntry')
-class TargetEntryPrinter:
-    def __init__(self, val) -> None:
-        self.val = val
-
+class TargetEntryPrinter(Printer):
     def to_string(self):
         return 'TargetEntry[resname: %s, resno: %s, ressortgroupref: %s, resorigtbl: %s, resorigcol: %s]' % (
             getchars(self.val['resname']),
@@ -1201,20 +833,17 @@ class TargetEntryPrinter:
             self.val['resorigtbl'],
             self.val['resorigcol']
         )
-    
+
     def children(self):
         return {
             ('expr', self.val['expr'].dereference()),
         }
-    
+
     def display_hint(self):
         return 'array'
 
 @register_printer('RangeTblEntry')
-class RangeTblEntryPrinter:
-    def __init__(self, val) -> None:
-        self.val = val
-
+class RangeTblEntryPrinter(Printer):
     def to_string(self):
         alias = self.val['eref'].dereference()
         retval = 'RangeTblEntry: [kind: %-17s' % (self.val['rtekind'])
@@ -1223,7 +852,7 @@ class RangeTblEntryPrinter:
         retval += ', relkind: %s' % ((self.val['relkind']))
         retval += ']'
         return retval
-    
+
     def children(self):
         if gdb.parameter('pg_verbose') == False:
             return []
@@ -1234,97 +863,58 @@ class RangeTblEntryPrinter:
             return {('cols', 'List with 0 elements')}
 
 @register_printer('SortGroupClause')
-class SortGroupClausePrinter:
-    def __init__(self, val) -> None:
-        self.val = val
-
+class SortGroupClausePrinter(Printer):
     def to_string(self):
-        return 'tleSortGroupRef: %s' % (self.val['tleSortGroupRef'])
+        return self.to_string_pretty('SortGroupClause', 'tleSortGroupRef', 'eqop', 'sortop', 'nulls_first', 'hashable')
 
 @register_printer('FromExpr')
-class FromExprPrinter:
-    def __init__(self, val) -> None:
-        self.val = val
-
+class FromExprPrinter(Printer):
     def to_string(self):
         return 'FromExpr'
-    
+
     def children(self):
-        list = []
-        add_list(list, self.val, 'fromlist')
-        add_list(list, self.val, 'quals')
-        return list
+        return self.children_pretty('fromlist' ,'quals')
 
 @register_printer('JoinExpr')
-class JoinExprPrinter:
-    def __init__(self, val) -> None:
-        self.val = val
-
+class JoinExprPrinter(Printer):
     def to_string(self):
         return '[jointype: %s, isNatural: %s, rtindex: %s]' % (self.val['jointype'], self.val['isNatural'], self.val['rtindex'])
-    
+
     def children(self):
-        list = []
-        add_list(list, self.val, 'larg')
-        add_list(list, self.val, 'rarg')
-        add_list(list, self.val, 'usingClause')
-        add_list(list, self.val, 'quals')
-        add_list(list, self.val, 'alias')
-        return list
+        return self.children_pretty('larg' ,'rarg' ,'usingClause' ,'quals' ,'alias')
 
 @register_printer('RangeTblRef')
-class RangeTblRefPrinter:
-    def __init__(self, val) -> None:
-        self.val = val
-
+class RangeTblRefPrinter(Printer):
     def to_string(self):
-        return 'RangeTblRef: %s' % str(self.val['rtindex'])
+        return self.to_string_pretty('RangeTblRef', 'rtindex')
 
 @register_printer('Integer')
-class IntegerPrinter:
-    def __init__(self, val) -> None:
-        self.val = val
-
+class IntegerPrinter(Printer):
     def to_string(self):
         return self.val['ival']
 
 @register_printer('Float')
-class FloatPrinter:
-    def __init__(self, val) -> None:
-        self.val = val
-
+class FloatPrinter(Printer):
     def to_string(self):
         return self.val['fval']
 
 @register_printer('Boolean')
-class BooleanPrinter:
-    def __init__(self, val) -> None:
-        self.val = val
-
+class BooleanPrinter(Printer):
     def to_string(self):
         return self.val['boolval']
 
 @register_printer('String')
-class StringPrinter:
-    def __init__(self, val) -> None:
-        self.val = val
-
+class StringPrinter(Printer):
     def to_string(self):
         return getchars(self.val['sval'], False)
 
 @register_printer('BitString')
-class BitStringPrinter:
-    def __init__(self, val) -> None:
-        self.val = val
-
+class BitStringPrinter(Printer):
     def to_string(self):
         return getchars(self.val['bsval'], False)
 
 @register_printer('BoolExpr')
-class BoolExprPrinter:
-    def __init__(self, val) -> None:
-        self.val = val
-
+class BoolExprPrinter(Printer):
     def to_string(self):
         if rtes.rtes != None:
             list = cast(self.val['args'], 'List')
@@ -1347,18 +937,15 @@ class BoolExprPrinter:
             return expr
         else:
             return 'boolop: %s' % self.val['boolop']
-    
+
     def children(self):
         list = []
         if rtes.rtes == None:
             add_list(list, self.val, 'args')
         return list
-    
-@register_printer('OpExpr')
-class OpExprPrinter:
-    def __init__(self, val) -> None:
-        self.val = val
 
+@register_printer('OpExpr')
+class OpExprPrinter(Printer):
     def to_string(self):
         if rtes.rtes != None:
             list = cast(self.val['args'], 'List')
@@ -1374,7 +961,7 @@ class OpExprPrinter:
                    cast(list_nth(list, 0, 'ptr'), 'Node').dereference()
                 )
         else:
-            return '[opno: %s, opfuncid: %s, opresulttype: %s, opretset %s, opcollid %s, inputcollid %s]' % (
+            return 'OpExpr[opno: %s, opfuncid: %s, opresulttype: %s, opretset %s, opcollid %s, inputcollid %s]' % (
                 self.val['opno'],
                 self.val['opfuncid'],
                 self.val['opresulttype'],
@@ -1382,7 +969,7 @@ class OpExprPrinter:
                 self.val['opcollid'],
                 self.val['inputcollid']
             )
-    
+
     def children(self):
         list = []
         if rtes.rtes == None:
@@ -1394,10 +981,7 @@ def format_type_extended(type, mod):
     return 'None'
 
 @register_printer('RelabelType')
-class RelabelTypePrinter:
-    def __init__(self, val) -> None:
-        self.val = val
-
+class RelabelTypePrinter(Printer):
     def to_string(self):
         if gdb.parameter('pg_verbose') == False:
             return '(%s)::%s' % (
@@ -1411,7 +995,7 @@ class RelabelTypePrinter:
                 self.val['resultcollid'],
                 self.val['relabelformat']
             )
-    
+
     def children(self):
         list = []
         if gdb.parameter('pg_verbose') == True:
@@ -1436,10 +1020,7 @@ def get_rte_attribute_name(rte, index):
     return 'None'
 
 @register_printer('Var')
-class VarPrinter:
-    def __init__(self, val) -> None:
-        self.val = val
-
+class VarPrinter(Printer):
     def to_string(self):
         if rtes.rtes != None:
             if int(self.val['varno']) == -1:
@@ -1457,17 +1038,8 @@ class VarPrinter:
                     get_rte_attribute_name(node, int(self.val['varattno'])),
                 )
         else:
-            return '[varno: %s, varattno: %s, vartype: %s, vartypmod: %s, varcollid: %s, varlevelsup: %s, varnosyn: %s, varattnosyn: %s]' % (
-            self.val['varno'],
-            self.val['varattno'],
-            self.val['vartype'],
-            self.val['vartypmod'],
-            self.val['varcollid'],
-            self.val['varlevelsup'],
-            self.val['varnosyn'],
-            self.val['varattnosyn']
-        )
-    
+            return self.to_string_pretty('Var', 'varno', 'varattno', 'vartype', 'vartypmod', 'varcollid', 'varlevelsup', 'varnosyn', 'varattnosyn')
+
     def display_hint(self):
         return 'array'
 
@@ -1494,124 +1066,20 @@ def get_const_val(type:int, val:int):
     return (False, '')
 
 @register_printer('Const')
-class ConstPrinter:
-    def __init__(self, val) -> None:
-        self.val = val
-
+class ConstPrinter(Printer):
     def to_string(self):
         if bool(self.val['constisnull']) == True:
             return 'Null'
         else:
-            # TODO: print constant pretty
+            # TODO: print constant pretty, add more support
             auto = get_const_val(int(self.val['consttype']), int(self.val['constvalue']))
             if auto[0] == True:
                 return auto[1]
             else:
-                return '[consttype: %s, consttypmod: %s, constcollid: %s, constlen: %s, constvalue: %s, constisnull: %s, constbyval: %s]' % (
-                    self.val['consttype'],
-                    self.val['consttypmod'],
-                    self.val['constcollid'],
-                    self.val['constlen'],
-                    self.val['constvalue'],
-                    self.val['constisnull'],
-                    self.val['constbyval']
-                )
-    
+                return self.to_string_pretty('Const', 'consttype', 'consttypmod', 'constcollid', 'constlen', 'constvalue', 'constisnull', 'constbyval')
 
-# @register_printer('PlannerInfo')
-# class PlannerInfoPrinter:
-#     def __init__(self, val) -> None:
-#         self.val = val
-
-#     def to_string(self):
-#         str = 'PlannerInfo['
-#         str += 'query_level: %s' % self.val['query_level']
-#         if int(self.val['simple_rel_array_size']) != 0:
-#             str += 'simple_rel_array_size: %s' % self.val['simple_rel_array_size']
-#         if int(self.val['join_cur_level']) != 0:
-#             str += 'join_cur_level: %s' % self.val['join_cur_level']
-#         if int(self.val['ec_merging_done']) != 0:
-#             str += 'ec_merging_done: %s' % self.val['ec_merging_done']
-#         if int(self.val['last_rinfo_serial']) != 0:
-#             str += 'last_rinfo_serial: %s' % self.val['last_rinfo_serial']
-#         if int(self.val['placeholder_array_size']) != 0:
-#             str += 'placeholder_array_size: %s' % self.val['placeholder_array_size']
-#         if int(self.val['qual_security_level']) != 0:
-#             str += 'qual_security_level: %s' % self.val['qual_security_level']
-
-#         if bool(self.val['hasJoinRTEs']) == True:
-#             str += 'hasJoinRTEs: True'
-#         if bool(self.val['hasLateralRTEs']) == True:
-#             str += 'hasLateralRTEs: True'
-#         if bool(self.val['hasHavingQual']) == True:
-#             str += 'hasHavingQual: True'
-#         if bool(self.val['hasPseudoConstantQuals']) == True:
-#             str += 'hasPseudoConstantQuals: True'
-#         if bool(self.val['hasAlternativeSubPlans']) == True:
-#             str += 'hasAlternativeSubPlans: True'
-
-#         if bool(self.val['placeholdersFrozen']) == True:
-#             str += 'placeholdersFrozen: True'
-#         if bool(self.val['hasRecursion']) == True:
-#             str += 'hasRecursion: True'
-#         if bool(self.val['hasNonPartialAggs']) == True:
-#             str += 'hasNonPartialAggs: True'
-#         if bool(self.val['hasNonSerialAggs']) == True:
-#             str += 'hasNonSerialAggs: True'
-#         if int(self.val['numOrderedAggs']) != 0:
-#             str += 'numOrderedAggs: %s' % self.val['numOrderedAggs']
-#         str += 'total_table_pages: %s' % self.val['total_table_pages']
-#         str += 'tuple_fraction: %s' % self.val['tuple_fraction']
-#         str += 'limit_tuples: %s' % self.val['limit_tuples']
-#         str += ']'
-#         return str
-
-#     def children(self):
-#         list = []
-#         add_list(list, self.val, 'parse')
-#         add_list(list, self.val, 'glob')
-#         add_list(list, self.val, 'parent_root')
-#         add_list(list, self.val, 'plan_params')
-#         add_list(list, self.val, 'join_rel_list')
-#         add_list(list, self.val, 'init_plans')
-#         add_list(list, self.val, 'cte_plan_ids')
-#         add_list(list, self.val, 'multiexpr_params')
-#         add_list(list, self.val, 'join_domains')
-#         add_list(list, self.val, 'eq_classes')
-#         add_list(list, self.val, 'canon_pathkeys')
-#         add_list(list, self.val, 'left_join_clauses')
-#         add_list(list, self.val, 'right_join_clauses')
-#         add_list(list, self.val, 'full_join_clauses')
-#         add_list(list, self.val, 'join_info_list')
-#         add_list(list, self.val, 'append_rel_list')
-#         add_list(list, self.val, 'row_identity_vars')
-#         add_list(list, self.val, 'rowMarks')
-#         add_list(list, self.val, 'placeholder_list')
-#         add_list(list, self.val, 'fkey_list')
-#         add_list(list, self.val, 'query_pathkeys')
-#         add_list(list, self.val, 'group_pathkeys')
-#         add_list(list, self.val, 'window_pathkeys')
-#         add_list(list, self.val, 'distinct_pathkeys')
-#         add_list(list, self.val, 'sort_pathkeys')
-#         add_list(list, self.val, 'part_schemes')
-#         add_list(list, self.val, 'initial_rels')
-#         add_list(list, self.val, 'processed_groupClause')
-#         add_list(list, self.val, 'processed_distinctClause')
-#         add_list(list, self.val, 'processed_tlist')
-#         add_list(list, self.val, 'update_colnos')
-#         add_list(list, self.val, 'grouping_map')
-#         add_list(list, self.val, 'minmax_aggs')
-#         add_list(list, self.val, 'agginfos')
-#         add_list(list, self.val, 'aggtransinfos')
-#         add_list(list, self.val, 'non_recursive_path')
-#         add_list(list, self.val, 'curOuterParams')
-#         return list
-    
 @register_printer('SubPlan')
-class SubPlanPrinter:
-    def __init__(self, val) -> None:
-        self.val = val
-
+class SubPlanPrinter(Printer):
     def to_string(self):
         return '[startup_cost: %.2f, per_call_cost: %.2f, subLinkType: %s, plan_id: %s, plan_name: %s, firstColType: %s, firstColTypmod: %s, firstColCollation: %s, useHashTable: %s, unknownEqFalse: %s, parallel_safe: %s]' % (
             float(self.val['startup_cost']),
@@ -1626,63 +1094,25 @@ class SubPlanPrinter:
             self.val['unknownEqFalse'],
             self.val['parallel_safe'],
         )
-    
+
     def children(self):
-        list = []
-        add_list(list, self.val, 'testexpr')
-        add_list(list, self.val, 'paramIds')
-        add_list(list, self.val, 'setParam')
-        add_list(list, self.val, 'parParam')
-        add_list(list, self.val, 'args')
-        return list
+        return self.children_pretty('testexpr' ,'paramIds' ,'setParam' ,'parParam' ,'args')
 
 @register_printer('Param')
-class ParamPrinter:
-    def __init__(self, val) -> None:
-        self.val = val
-
+class ParamPrinter(Printer):
     def to_string(self):
-        return '[paramkind: %s, paramid: %s, paramtype: %s, paramtypmod: %s, paramcollid: %s]' % (
-            self.val['paramkind'],
-            self.val['paramid'],
-            self.val['paramtype'],
-            self.val['paramtypmod'],
-            self.val['paramcollid']
-        )
+        return self.to_string_pretty('Param', 'paramkind', 'paramid', 'paramtype', 'paramtypmod', 'paramcollid')
 
 @register_printer('Aggref')
-class AggrefPrinter:
-    def __init__(self, val) -> None:
-        self.val = val
-
+class AggrefPrinter(Printer):
     def to_string(self):
-        return '[aggfnoid: %s, aggtype: %s, aggcollid: %s, inputcollid: %s, aggtranstype: %s, aggstar: %s, aggvariadic: %s, aggkind: %s, agglevelsup: %s, aggsplit: %s]' % (
-            self.val['aggfnoid'],
-            self.val['aggtype'],
-            self.val['aggcollid'],
-            self.val['inputcollid'],
-            self.val['aggtranstype'],
-            self.val['aggstar'],
-            self.val['aggvariadic'],
-            self.val['aggkind'],
-            self.val['agglevelsup'],
-            self.val['aggsplit']
-        )
+        return self.to_string_pretty( 'aggfnoid' ,'aggtype' ,'aggcollid' ,'inputcollid' ,'aggtranstype' ,'aggstar' ,'aggvariadic' ,'aggkind' ,'agglevelsup' ,'aggsplit')
+
     def children(self):
-        list = []
-        add_list(list, self.val, 'aggargtypes')
-        add_list(list, self.val, 'aggdirectargs')
-        add_list(list, self.val, 'args')
-        add_list(list, self.val, 'aggorder')
-        add_list(list, self.val, 'aggdistinct')
-        add_list(list, self.val, 'aggfilter')
-        return list
+        return self.children_pretty('aggargtypes' ,'aggdirectargs' ,'args' ,'aggorder' ,'aggdistinct' ,'aggfilter')
 
 @register_printer('PathTarget')
-class PathTargetPrinter:
-    def __init__(self, val) -> None:
-        self.val = val
-
+class PathTargetPrinter(Printer):
     def to_string(self):
         return '[cost: (%.2f..%.2f), width: %s]' % (
             float(self.val['cost']['startup']),
@@ -1690,63 +1120,25 @@ class PathTargetPrinter:
             self.val['width'],
         )
     def children(self):
-        list = []
-        add_list(list, self.val, 'exprs')
-        add_list(list, self.val, 'sortgrouprefs')
-        return list
+        return self.children_pretty('exprs', 'sortgrouprefs')
 
 @register_printer('PlannedStmt')
-class PlannedStmtPrinter:
-    def __init__(self, val) -> None:
-        self.val = val
-
+class PlannedStmtPrinter(Printer):
     def to_string(self):
-        return '[commandType: %s, queryId: %s, hasReturning: %s, hasModifyingCTE: %s, canSetTag: %s, transientPlan: %s, dependsOnRole: %s, parallelModeNeeded: %s, jitFlags: %s]' % (
-            self.val['commandType'],
-            self.val['queryId'],
-            self.val['hasReturning'],
-            self.val['hasModifyingCTE'],
-            self.val['canSetTag'],
-            self.val['transientPlan'],
-            self.val['dependsOnRole'],
-            self.val['parallelModeNeeded'],
-            self.val['jitFlags']
-        )
+        return self.to_string_pretty('PlannedStmt', 'commandType', 'queryId', 'hasReturning', 'hasModifyingCTE', 'canSetTag', 'transientPlan', 'dependsOnRole', 'parallelModeNeeded', 'jitFlags')
 
     def children(self):
-        list = []
-        add_list(list, self.val, 'rtable')
-        add_list(list, self.val, 'planTree')
-        add_list(list, self.val, 'permInfos')
-        add_list(list, self.val, 'resultRelations')
-        add_list(list, self.val, 'appendRelations')
-        add_list(list, self.val, 'subplans')
-        add_list(list, self.val, 'rewindPlanIDs')
-        add_list(list, self.val, 'rowMarks')
-        add_list(list, self.val, 'relationOids')
-        add_list(list, self.val, 'invalItems')
-        add_list(list, self.val, 'paramExecTypes')
-        add_list(list, self.val, 'utilityStmt')
-        return list
+        return self.children_pretty('rtable', 'planTree', 'permInfos', 'resultRelations', 'appendRelations', 'subplans', 'rewindPlanIDs', 'rowMarks', 'relationOids', 'invalItems', 'paramExecTypes', 'utilityStmt')
 
 
 @register_printer('Plan')
-class PlanPrinter:
-    '''
-    print plan
-    '''
-    def __init__(self, val) -> None:
-        self.val = val
-
+class PlanPrinter(Printer):
     def to_string(self):
         type = get_node_type(self.val)
         return self.val.address.cast(gdb.lookup_type(type).pointer()).dereference()
 
 @register_printer('Result')
-class ResultPrinter:
-    def __init__(self, val) -> None:
-        self.val = val
-
+class ResultPrinter(Printer):
     def to_string(self):
         ext = ''
         return plan_to_string('Result', self.val['plan']) + ext
@@ -1903,7 +1295,7 @@ class SeqScanPrinter:
         #  TODO select from database?
         if rtes.rtes != None:
             node = cast(rtes.get_rte(int(self.val['scan']['scanrelid']))['ptr_value'], 'RangeTblEntry')
-            ext += ' on %s' % getchars(node['eref']['aliasname'], False)
+            ext += ' on %s' % getchars(node['eref']['aliasname'], True)
         else:
             ext = ' <scanrelid: %s>' % str(self.val['scan']['scanrelid'])
 
@@ -2048,29 +1440,6 @@ class AggPrinter:
         add_list(list, self.val, 'chain')
         return list
 
-@register_printer('ClusterReduce')
-class ClusterReducePrinter:
-    def __init__(self, val) -> None:
-        self.val = val
-
-    def to_string(self):
-        ext = ' <special_node: %s, numCols: %s, reduce_flags: %s>' % (
-            str(self.val['special_node']),
-            str(self.val['numCols']),
-            str(self.val['reduce_flags'])
-        )
-        return plan_to_string('ClusterReduce', self.val['plan']) + ext
-    
-    def children(self):
-        list = plan_children(self.val['plan'])
-        add_list(list, self.val, 'reduce')
-        add_list(list, self.val, 'special_reduce')
-        add_list(list, self.val, 'reduce_oids')
-        add_list(list, self.val, 'sortColIdx')
-        add_list(list, self.val, 'sortOperators')
-        add_list(list, self.val, 'collations')
-        return list
-
 
 @register_printer('Unique')
 class UniquePrinter:
@@ -2206,7 +1575,7 @@ class LimitPrinter:
         add_list(list, self.val, 'uniqOperators')
         add_list(list, self.val, 'uniqCollations')
         return list
-    
+
 gdb.printing.register_pretty_printer(
     gdb.current_objfile(),
     printer, True)

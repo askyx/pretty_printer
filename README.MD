@@ -21,8 +21,8 @@ select oid, oprname from pg_operator ;
 
 - `gdb` pretty打印pg结构体
 - type oper以及var等自动分析
-- 常量打印
-- 自定义打印等级
+- [TODO]常量打印
+- [TODO]自定义打印等级
 
 * 新增参数
   - pg_retes : rtable, 辅助分析，没有设置则类似pprint，实质是保存当前对象所依赖的rtable的地址，在不同阶段，rtable 不一样，可能需要灵活调整
@@ -32,7 +32,7 @@ select oid, oprname from pg_operator ;
     * trace : 类似pprint，不会解析
     * verbose ： 类似explan verbose， 尝试解析，且输出 targetlist
     * plain : 类似explain， 尝试简介输出
-  - ...
+  - pg_print : 設置pretty_printer 功能开关
 
 ## 技术栈
 
