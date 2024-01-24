@@ -27,6 +27,12 @@ class printerRtes(gdb.Parameter):
         node = cast(self.rtes, 'List')
         return node['elements'][index - 1]
 
+def getTypeOutputInfo(t_oid):
+    tupe = gdb.parse_and_eval('SearchSysCache1(TYPEOID, {})'.format(t_oid))
+    tp = gdb.parse_and_eval('(Form_pg_type){}'.format(int(tupe['t_data']) + int(tupe['t_data']['t_hoff'])))
+    return [int(tp['typoutput']), (not bool(tp['typbyval'])) and int(tp['typlen']) == -1]
+
+
 class printerTurn(gdb.Parameter):
     def __init__(self) -> None:
         super(printerTurn, self).__init__('pg_print', gdb.COMMAND_DATA, gdb.PARAM_BOOLEAN)
@@ -45,38 +51,6 @@ class printerTurn(gdb.Parameter):
 rtes = printerRtes()
 printerTurn()
 
-class PgType:
-    def __init__(self) -> None:
-        self.types = {}
-        with open('/home/asky/pretty_printer/pg_type.txt') as file:
-            for line in file:
-                kv = line.strip().split()
-                if len(kv) != 0:
-                    self.types[int(kv[0])] = kv[2]
-
-    def get_type(self, key: int) -> str:
-        if key in self.types:
-            return self.types[key]
-        else:
-            return 'unkowne_type'
-
-class PgOperator:
-    def __init__(self) -> None:
-        self.oper = {}
-        with open('/home/asky/pretty_printer/pg_operator.txt') as file:
-            for line in file:
-                kv = line.strip().split()
-                if len(kv) != 0:
-                    self.oper[int(kv[0])] = kv[2]
-
-    def get_oper(self, key: int) -> str:
-        if key in self.oper:
-            return self.oper[key]
-        else:
-            return 'unkowne_oper'
-
-pg_type = PgType()
-pg_oper = PgOperator()
 
 def register_printer(name):
     def __registe(_printer):
@@ -944,51 +918,26 @@ class BoolExprPrinter(Printer):
             add_list(list, self.val, 'args')
         return list
 
+def list_length(node):
+    return int(cast(node, 'List')['length'])
+
 @register_printer('OpExpr')
 class OpExprPrinter(Printer):
     def to_string(self):
-        if rtes.rtes != None:
-            list = cast(self.val['args'], 'List')
-            if int(list['length']) == 2:
-                return '(%s %s %s)' % (
-                    cast(list_nth(list, 0, 'ptr'), 'Node').dereference(),
-                    pg_oper.get_oper(int(self.val['opno'])),
-                    cast(list_nth(list, 1, 'ptr'), 'Node').dereference()
-                )
-            else:
-                return '(%s %s)' % (
-                   pg_oper.get_oper(int(self.val['opno'])),
-                   cast(list_nth(list, 0, 'ptr'), 'Node').dereference()
-                )
+        opname = gdb.parse_and_eval('get_opname({})'.format(self.val['opno']))
+        if str(opname) == '0x0':
+            opname = '(invalid operator)'
+        if list_length(self.val['args']) > 1:
+            lop = list_nth_node(self.val['args'], 0).dereference()
+            rop = list_nth_node(self.val['args'], 1).dereference()
+            return '%s %s %s' % (lop, opname, rop)
         else:
-            return 'OpExpr[opno: %s, opfuncid: %s, opresulttype: %s, opretset %s, opcollid %s, inputcollid %s]' % (
-                self.val['opno'],
-                self.val['opfuncid'],
-                self.val['opresulttype'],
-                self.val['opretset'],
-                self.val['opcollid'],
-                self.val['inputcollid']
-            )
-
-    def children(self):
-        list = []
-        if rtes.rtes == None:
-            add_list(list, self.val, 'args')
-        return list
-
-def format_type_extended(type, mod):
-
-    return 'None'
+            op = list_nth_node(self.val['args'], 0).dereference()
+            return '%s %s' % (op, opname)
 
 @register_printer('RelabelType')
 class RelabelTypePrinter(Printer):
     def to_string(self):
-        if gdb.parameter('pg_verbose') == False:
-            return '(%s)::%s' % (
-                self.val['arg'].dereference(),
-                pg_type.get_type(int(self.val['resulttype']))
-            )
-        else:
             return 'RelabelType[resulttype: %s, resulttypmod: %s, resultcollid: %s, relabelformat: %s]' % (
                 self.val['resulttype'],
                 self.val['resulttypmod'],
@@ -1006,7 +955,11 @@ def is_none(node):
     return str(node) == '0x0'
 
 def list_nth(list, index, type):
-    return list['elements'][index][type + '_value']
+    l = cast(list, 'List')
+    return l['elements'][index][type + '_value']
+
+def list_nth_node(list, index):
+    return cast(list_nth(list, index, 'ptr'), 'Node')
 
 def get_rte_attribute_name(rte, index):
     if index == 0:
@@ -1043,40 +996,14 @@ class VarPrinter(Printer):
     def display_hint(self):
         return 'array'
 
-# TODO add more
-def get_const_val(type:int, val:int):
-    if type == 16:
-        return (True, 'true' if val != 0 else 'false')
-    elif type == 20 or type == 21 or type == 23 or type == 26 or type == 28 or type == 29:
-        return (True, int(val))
-    elif type == 25:
-        v = gdb.parse_and_eval('(char*)' + str(val))
-        if v[0] == 0x01:
-            return (False, 'cant print now')
-        elif (v[0] & 0x01) == 0x01:
-            len = v[0] >> 1 & 0x7F
-            # TODO
-            return (True, 'xxx')
-        else:
-            v = gdb.parse_and_eval('(int32*)' + str(val))
-            len = ((v[0] >> 2 ) & 0x3FFFFFFF) - 4
-            v = gdb.parse_and_eval('(char*)' + str(val + 4))
-            return (True, getchars(v, True, len))
-
-    return (False, '')
-
 @register_printer('Const')
 class ConstPrinter(Printer):
     def to_string(self):
         if bool(self.val['constisnull']) == True:
             return 'Null'
         else:
-            # TODO: print constant pretty, add more support
-            auto = get_const_val(int(self.val['consttype']), int(self.val['constvalue']))
-            if auto[0] == True:
-                return auto[1]
-            else:
-                return self.to_string_pretty('Const', 'consttype', 'consttypmod', 'constcollid', 'constlen', 'constvalue', 'constisnull', 'constbyval')
+            pfunc = getTypeOutputInfo(int(self.val['consttype']))
+            return str(gdb.parse_and_eval('OidOutputFunctionCall({}, {})'.format(pfunc[0], int(self.val['constvalue']))).dereference())
 
 @register_printer('SubPlan')
 class SubPlanPrinter(Printer):
@@ -1582,13 +1509,9 @@ gdb.printing.register_pretty_printer(
 
 class printVerbose(gdb.Parameter):
     def __init__(self) -> None:
-        super(printVerbose, self).__init__('pg_verbose', gdb.COMMAND_DATA, gdb.PARAM_BOOLEAN)
+        super(printVerbose, self).__init__('print verbose', gdb.COMMAND_DATA, gdb.PARAM_BOOLEAN)
         self.value = False
-
-    def get_set_string(self) -> str:
-        return ''
 
 
 
 printVerbose()
-
