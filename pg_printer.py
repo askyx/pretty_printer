@@ -59,8 +59,6 @@ def register_printer(name):
 
 def get_node_type(node):
     type = str(node['type'])[2:]
-    if type == 'Bitmapset':
-        return 'Relids'
     return type
 
 # max print 100
@@ -127,12 +125,13 @@ def plan_to_string(type, plan):
 
 def plan_children(plan):
     list = []
-    if gdb.parameter('pg_verbose'):
-        add_list(list, plan, 'targetlist')
+    add_list(list, plan, 'targetlist')
     add_list(list, plan, 'qual')
     add_list(list, plan, 'initPlan')
     add_list(list, plan, 'lefttree')
     add_list(list, plan, 'righttree')
+    add_list(list, plan, 'extParam')
+    add_list(list, plan, 'allParam')
     return list
 
 def path_to_string(type, path):
@@ -280,18 +279,19 @@ class ProjectionPathPrinter:
         add_list(list, self.val, 'subpath')
         return list
 
-@register_printer('Relids')
-class RelidsPrinter:
+@register_printer('Bitmapset')
+class BitmapsetPrinter:
     def __init__(self, val) -> None:
         self.val = val
 
     def to_string(self):
-        l = int(self.val['nwords'])
-        ret = ''
-        while l > 0:
-            l -= 1
-            ret = str(self.val['words'][l]) + ' ' + ret
-        return 'Relids:' + ret
+        list = []
+        index = int(gdb.parse_and_eval('bms_next_member({}, {})'.format(self.val.reference_value().address, -1)))
+        while index >= 0:
+            list.append(index)
+            index = int(gdb.parse_and_eval('bms_next_member({}, {})'.format(self.val.reference_value().address, index)))
+
+        return str(list)
 
 @register_printer('FuncExpr')
 class FuncExprPrinter(Printer):
@@ -329,17 +329,12 @@ class ColumnRefPrinter:
             s = '.%s' % item.dereference()
             col = s + col
 
-        if gdb.parameter('pg_verbose') == True:
-            return 'ColumnRef[location: %s]' % (
-                self.val['location'],
-            )
-        else:
-            return "ColumnRef['%s']" % col
+
+        return "ColumnRef['%s']" % col
 
     def children(self):
         list = []
-        if gdb.parameter('pg_verbose') == True:
-            add_list(list, self.val, 'fields')
+        add_list(list, self.val, 'fields')
         return list
 
 @register_printer('ResTarget')
@@ -828,8 +823,6 @@ class RangeTblEntryPrinter(Printer):
         return retval
 
     def children(self):
-        if gdb.parameter('pg_verbose') == False:
-            return []
         cols = self.val['eref'].dereference()['colnames']
         if str(cols) != '0x0':
             return {('cols', cols.dereference())}
@@ -947,8 +940,7 @@ class RelabelTypePrinter(Printer):
 
     def children(self):
         list = []
-        if gdb.parameter('pg_verbose') == True:
-            add_list(list, self.val, 'arg')
+        add_list(list, self.val, 'arg')
         return list
 
 def is_none(node):
@@ -1218,21 +1210,11 @@ class SeqScanPrinter:
         self.val = val
 
     def to_string(self):
-        ext = ''
-        #  TODO select from database?
-        if rtes.rtes != None:
-            node = cast(rtes.get_rte(int(self.val['scan']['scanrelid']))['ptr_value'], 'RangeTblEntry')
-            ext += ' on %s' % getchars(node['eref']['aliasname'], True)
-        else:
-            ext = ' <scanrelid: %s>' % str(self.val['scan']['scanrelid'])
-
+        ext = ' <scanrelid: %s>' % str(self.val['scan']['scanrelid'])
         return plan_to_string('SeqScan', self.val['scan']['plan']) + ext
 
     def children(self):
-        if rtes.rtes != None:
-            return plan_children(self.val['scan']['plan'])
-        else:
-            return []
+        return plan_children(self.val['scan']['plan'])
 
 @register_printer('SubqueryScan')
 class SubqueryScanPrinter:
