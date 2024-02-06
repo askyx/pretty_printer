@@ -1,61 +1,97 @@
 import gdb
 import string
+import re
+import os
+import sys
+
+current_file_path = os.path.abspath(__file__)
+
+current_dir = os.path.dirname(current_file_path)
+
+if current_dir not in sys.path:
+    sys.path.append(current_dir)
+
+from node_struct import *
 
 printer = gdb.printing.RegexpCollectionPrettyPrinter("PostgreSQL 16beta2")
-
-class printerRtes(gdb.Parameter):
-    def __init__(self) -> None:
-        super(printerRtes, self).__init__('pg_retes', gdb.COMMAND_DATA, gdb.PARAM_STRING)
-        self.value = 'None'
-        self.rtes = None
-
-    def get_set_string(self) -> str:
-        if self.value == 'None':
-            return ''
-        self.rtes = gdb.parse_and_eval(self.value)
-        node = cast(self.rtes, 'List').dereference()
-        print(node)
-        return ''
-
-    def get_show_string(self, svalue: str) -> str:
-        if self.rtes != None:
-            node = cast(self.rtes, 'List').dereference()
-            print(node)
-        return ''
-
-    def get_rte(self, index: int) -> gdb.Value:
-        node = cast(self.rtes, 'List')
-        return node['elements'][index - 1]
-
-def getTypeOutputInfo(t_oid):
-    tupe = gdb.parse_and_eval('SearchSysCache1(TYPEOID, {})'.format(t_oid))
-    tp = gdb.parse_and_eval('(Form_pg_type){}'.format(int(tupe['t_data']) + int(tupe['t_data']['t_hoff'])))
-    return [int(tp['typoutput']), (not bool(tp['typbyval'])) and int(tp['typlen']) == -1]
-
-
-class printerTurn(gdb.Parameter):
-    def __init__(self) -> None:
-        super(printerTurn, self).__init__('pg_print', gdb.COMMAND_DATA, gdb.PARAM_BOOLEAN)
-        self.value = True
-
-    def get_set_string(self) -> str:
-        if self.value == False:
-            for p in printer.subprinters:
-                p.enabled = False
-        else:
-            for p in printer.subprinters:
-                p.enabled = True
-
-        return ''
-
-rtes = printerRtes()
-printerTurn()
-
 
 def register_printer(name):
     def __registe(_printer):
         printer.add_printer(name, '^' + name + '$', _printer)
     return __registe
+
+def getTypeOutputInfo(t_oid):
+    tupe = gdb.parse_and_eval('SearchSysCache1(TYPEOID, {})'.format(t_oid))
+    tp = gdb.parse_and_eval('(Form_pg_type){}'.format(int(tupe['t_data']) + int(tupe['t_data']['t_hoff'])))
+    gdb.parse_and_eval('ReleaseSysCache({})'.format(tupe.dereference().address))
+    return [int(tp['typoutput']), (not bool(tp['typbyval'])) and int(tp['typlen']) == -1]
+
+@register_printer('Node')
+class NodePrinter:
+    def __init__(self, val) -> None:
+        self.val = val
+
+    def to_string(self):
+        type = get_node_type(self.val)
+        if type == 'A_Star':
+            return '*'
+        return self.val.address.cast(gdb.lookup_type(type).pointer()).dereference()
+
+pl = {'Var': Var}
+
+def gen_printer_class(class_name, fields):
+    class Printer():
+        def __init__(self, val) -> None:
+            self.val = val
+
+        def to_string(self):
+            pod = fields[0]
+            size = len(pod)
+            ret = '%s' % class_name
+            if size > 1:
+                ret += ' {'
+
+            ss = []
+            for arg in pod:
+                s = '%s: %s' % (arg, self.val[arg])
+                ss.append(s)
+
+            ret += ', '.join(ss)
+
+            if size > 1:
+                ret += '}'
+
+            return ret
+
+        def children(self):
+            list = []
+            for arg in fields[1]:
+                add_list(list, self.val, arg)
+            return list
+
+        def display_hint(self):
+            return 'array'
+
+    Printer.__name__ = class_name
+    return Printer
+
+def split_field(s):
+    pod_item = []
+    pointer_item = []
+    for key, val in s.items():
+        if re.search('\*', key):
+            pointer_item.append(val)
+        else:
+            pod_item.append(val)
+
+    return [pod_item, pointer_item]
+
+def generate_printer():
+    for name, s in pl.items():
+        pointerx = gen_printer_class(name, split_field(s))
+        printer.add_printer(name, '^' + name + '$', pointerx)
+
+generate_printer()
 
 def get_node_type(node):
     type = str(node['type'])[2:]
@@ -883,32 +919,11 @@ class BitStringPrinter(Printer):
 @register_printer('BoolExpr')
 class BoolExprPrinter(Printer):
     def to_string(self):
-        if rtes.rtes != None:
-            list = cast(self.val['args'], 'List')
-            len = int(list['length'])
-            op = str(self.val['boolop'])
-            expr = '('
-            if op == 'NOT_EXPR':
-                op += 'NOT '
-            expr += str(cast(list_nth(list, 0, 'ptr'), 'Node').dereference())
-            i = 1
-            while i < len:
-                if op == 'AND_EXPR':
-                    expr += ' AND '
-                elif op == 'OR_EXPR':
-                    expr += ' OR '
-                expr += str(cast(list_nth(list, i, 'ptr'), 'Node').dereference())
-                i += 1
-
-            expr += ')'
-            return expr
-        else:
-            return 'boolop: %s' % self.val['boolop']
+        return 'boolop: %s' % self.val['boolop']
 
     def children(self):
         list = []
-        if rtes.rtes == None:
-            add_list(list, self.val, 'args')
+        add_list(list, self.val, 'args')
         return list
 
 def list_length(node):
@@ -963,30 +978,6 @@ def get_rte_attribute_name(rte, index):
     if index > 0 and index <= int(cast(rte['eref']['colnames'], 'List')['length']):
         return cast(list_nth(cast(rte['eref']['colnames'], 'List'), index - 1, 'ptr'), 'Node').dereference()
     return 'None'
-
-@register_printer('Var')
-class VarPrinter(Printer):
-    def to_string(self):
-        if rtes.rtes != None:
-            if int(self.val['varno']) == -1:
-                return 'INNER.?'
-            elif int(self.val['varno']) == -2:
-                return 'OUTER.?'
-            elif int(self.val['varno']) == -3:
-                return 'INDEX.?'
-            elif int(self.val['varno']) == -4:
-                return 'ROWID_VAR'
-            else:
-                node = cast(rtes.get_rte(int(self.val['varno']))['ptr_value'], 'RangeTblEntry')
-                return '%s.%s' % (
-                    getchars(node['eref']['aliasname'], False),
-                    get_rte_attribute_name(node, int(self.val['varattno'])),
-                )
-        else:
-            return self.to_string_pretty('Var', 'varno', 'varattno', 'vartype', 'vartypmod', 'varcollid', 'varlevelsup', 'varnosyn', 'varattnosyn')
-
-    def display_hint(self):
-        return 'array'
 
 @register_printer('Const')
 class ConstPrinter(Printer):
@@ -1491,9 +1482,29 @@ gdb.printing.register_pretty_printer(
 
 class printVerbose(gdb.Parameter):
     def __init__(self) -> None:
-        super(printVerbose, self).__init__('print verbose', gdb.COMMAND_DATA, gdb.PARAM_BOOLEAN)
-        self.value = False
+        super(printVerbose, self).__init__('print pg_pretty', gdb.COMMAND_DATA, gdb.PARAM_BOOLEAN)
+        self.value = True
+
+    def get_set_string(self) -> str:
+        if self.value == False:
+            for p in printer.subprinters:
+                p.enabled = False
+        else:
+            for p in printer.subprinters:
+                p.enabled = True
+
+    def get_show_string(self, pvalue):
+        if self.value == True:
+           return "Current value is 'True', you can 'set print level'  "
+        else:
+           return "Current value is 'False'"
+
+class printerTurn(gdb.Parameter):
+    def __init__(self) -> None:
+        super(printerTurn, self).__init__('print level', gdb.COMMAND_DATA, gdb.PARAM_ENUM, ['trace', 'info'])
+        self.enum = ['trace', 'info']
+        self.value = self.enum[0]
 
 
-
+printerTurn()
 printVerbose()
