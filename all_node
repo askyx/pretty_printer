@@ -253,6 +253,7 @@
   2247: PathKey
   2254: PathTarget
   2262: ParamPathInfo
+  --
   2269: Path
   2283: IndexPath
   2294: IndexClause
@@ -293,6 +294,7 @@
   2534: LockRowsPath
   2541: ModifyTablePath
   2559: LimitPath
+  --
   2567: RestrictInfo
   2606: PlaceHolderVar
   2614: SpecialJoinInfo
@@ -305,6 +307,7 @@
   2679: AggInfo
   2686: AggTransInfo
   2702: PlannedStmt
+  --
   2728: Plan
   2746: Result
   2751: ProjectSet
@@ -351,6 +354,7 @@
   3094: SetOp
   3107: LockRows
   3113: Limit
+  --
   3124: PlanRowMark
   3135: PartitionPruneInfo
   3140: PartitionedRelPruneInfo
