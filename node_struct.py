@@ -2059,7 +2059,6 @@ PlannerInfo = [
   ('List*', 'update_colnos'),
   ('AttrNumber*', 'grouping_map'),
   ('List*', 'minmax_aggs'),
-  ('MemoryContext', 'planner_cxt'),
   ('Cardinality', 'total_table_pages'),
   ('Selectivity', 'tuple_fraction'),
   ('Cardinality', 'limit_tuples'),
@@ -3170,11 +3169,6 @@ PartitionPruneStepCombine = [
 PlanInvalItem = [
   ('int', 'cacheId'),
   ('uint32', 'hashValue'),
-]
-
-Bitmapset = [
-  ('int', 'nwords'),
-  ('bitmapword[FLEXIBLE_ARRAY_MEMBER]', 'words'),
 ]
 
 ExtensibleNode = [

@@ -26,16 +26,57 @@ def getTypeOutputInfo(t_oid):
     gdb.parse_and_eval('ReleaseSysCache({})'.format(tupe.dereference().address))
     return [int(tp['typoutput']), (not bool(tp['typbyval'])) and int(tp['typlen']) == -1]
 
-@register_printer('Node')
-class NodePrinter:
+class Printer:
     def __init__(self, val) -> None:
         self.val = val
 
+    def to_string_pretty(self, name, *args):
+        ret = '%s' % name
+        if len(args) != 0:
+            ret += '['
+
+        ss = []
+        for arg in args:
+            s = '%s: %s' % (arg, self.val[arg])
+            ss.append(s)
+
+        ret += ', '.join(ss)
+
+        if len(args) != 0:
+            ret += ']'
+
+        return ret
+
+    def children_pretty(self, *args):
+        list = []
+        for arg in args:
+            add_list(list, self.val, arg)
+        return list
+
+@register_printer('Node')
+class NodePrinter(Printer):
     def to_string(self):
         type = get_node_type(self.val)
         if type == 'A_Star':
             return '*'
         return self.val.address.cast(gdb.lookup_type(type).pointer()).dereference()
+
+@register_printer('Bitmapset')
+class BitmapsetPrinter(Printer):
+    def to_string(self):
+        list = []
+        index = int(gdb.parse_and_eval('bms_next_member({}, {})'.format(self.val.reference_value().address, -1)))
+        while index >= 0:
+            list.append(index)
+            index = int(gdb.parse_and_eval('bms_next_member({}, {})'.format(self.val.reference_value().address, index)))
+
+        return str(list)
+
+@register_printer('Relids')
+class RelidsPrinter(Printer):
+    def to_string(self):
+        return self.val.address.cast(gdb.lookup_type('Bitmapset').pointer()).dereference()
+
 
 pl = {
     'Alias': Alias,         'RangeVar': RangeVar,
@@ -310,7 +351,6 @@ pl = {
     'PartitionPruneStepOp': PartitionPruneStepOp,
     'PartitionPruneStepCombine': PartitionPruneStepCombine,
     'PlanInvalItem': PlanInvalItem,
-    'Bitmapset': Bitmapset,
     'ExtensibleNode': ExtensibleNode,
     'ForeignKeyCacheInfo': ForeignKeyCacheInfo,
 }
@@ -465,33 +505,6 @@ def path_children(path):
     add_list(list, path, 'pathkeys')
     return list
 
-class Printer:
-    def __init__(self, val) -> None:
-        self.val = val
-
-    def to_string_pretty(self, name, *args):
-        ret = '%s' % name
-        if len(args) != 0:
-            ret += '['
-
-        ss = []
-        for arg in args:
-            s = '%s: %s' % (arg, self.val[arg])
-            ss.append(s)
-
-        ret += ', '.join(ss)
-
-        if len(args) != 0:
-            ret += ']'
-
-        return ret
-
-    def children_pretty(self, *args):
-        list = []
-        for arg in args:
-            add_list(list, self.val, arg)
-        return list
-
 @register_printer('List')
 class ListPrinter:
     'print List'
@@ -571,20 +584,6 @@ class ProjectionPathPrinter:
         list = path_children(self.val['path'])
         add_list(list, self.val, 'subpath')
         return list
-
-@register_printer('Bitmapset')
-class BitmapsetPrinter:
-    def __init__(self, val) -> None:
-        self.val = val
-
-    def to_string(self):
-        list = []
-        index = int(gdb.parse_and_eval('bms_next_member({}, {})'.format(self.val.reference_value().address, -1)))
-        while index >= 0:
-            list.append(index)
-            index = int(gdb.parse_and_eval('bms_next_member({}, {})'.format(self.val.reference_value().address, index)))
-
-        return str(list)
 
 @register_printer('ValUnion')
 class ValUnionPrinter(Printer):
