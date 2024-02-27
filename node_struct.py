@@ -2059,7 +2059,6 @@ PlannerInfo = [
   ('List*', 'update_colnos'),
   ('AttrNumber*', 'grouping_map'),
   ('List*', 'minmax_aggs'),
-  ('MemoryContext', 'planner_cxt'),
   ('Cardinality', 'total_table_pages'),
   ('Selectivity', 'tuple_fraction'),
   ('Cardinality', 'limit_tuples'),
