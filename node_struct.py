@@ -3171,11 +3171,6 @@ PlanInvalItem = [
   ('uint32', 'hashValue'),
 ]
 
-Bitmapset = [
-  ('int', 'nwords'),
-  ('bitmapword[FLEXIBLE_ARRAY_MEMBER]', 'words'),
-]
-
 ExtensibleNode = [
   ('char*', 'extnodename'),
 ]
