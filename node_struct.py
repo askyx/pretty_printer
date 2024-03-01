@@ -46,10 +46,9 @@ Var = [
   ('Oid', 'vartype'),
   ('int32', 'vartypmod'),
   ('Oid', 'varcollid'),
-  ('Bitmapset*', 'varnullingrels'),
   ('Index', 'varlevelsup'),
-  ('Index', 'varnosyn'),
-  ('AttrNumber', 'varattnosyn'),
+  ('Index', 'varnoold'),
+  ('AttrNumber', 'varoattno'),
   ('int', 'location'),
 ]
 
@@ -88,11 +87,9 @@ Aggref = [
   ('bool', 'aggstar'),
   ('bool', 'aggvariadic'),
   ('char', 'aggkind'),
-  ('bool', 'aggpresorted'),
   ('Index', 'agglevelsup'),
   ('AggSplit', 'aggsplit'),
-  ('int', 'aggno'),
-  ('int', 'aggtransno'),
+  ('int', 'agg_expr_id'),
   ('int', 'location'),
 ]
 
@@ -478,7 +475,6 @@ JoinExpr = [
   ('Node*', 'larg'),
   ('Node*', 'rarg'),
   ('List*', 'usingClause'),
-  ('Alias*', 'join_using_alias'),
   ('Node*', 'quals'),
   ('Alias*', 'alias'),
   ('int', 'rtindex'),
@@ -510,39 +506,41 @@ Query = [
   ('bool', 'hasAggs'),
   ('bool', 'hasWindowFuncs'),
   ('bool', 'hasTargetSRFs'),
+  ('bool', 'hasDynamicFunctions'),
+  ('bool', 'hasFuncsWithExecRestrictions'),
   ('bool', 'hasSubLinks'),
   ('bool', 'hasDistinctOn'),
   ('bool', 'hasRecursive'),
   ('bool', 'hasModifyingCTE'),
   ('bool', 'hasForUpdate'),
   ('bool', 'hasRowSecurity'),
-  ('bool', 'isReturn'),
+  ('bool', 'canOptSelectLockingClause'),
   ('List*', 'cteList'),
   ('List*', 'rtable'),
-  ('List*', 'rteperminfos'),
   ('FromExpr*', 'jointree'),
-  ('List*', 'mergeActionList'),
-  ('bool', 'mergeUseOuterJoin'),
   ('List*', 'targetList'),
   ('OverridingKind', 'override'),
   ('OnConflictExpr*', 'onConflict'),
   ('List*', 'returningList'),
   ('List*', 'groupClause'),
-  ('bool', 'groupDistinct'),
   ('List*', 'groupingSets'),
   ('Node*', 'havingQual'),
   ('List*', 'windowClause'),
   ('List*', 'distinctClause'),
   ('List*', 'sortClause'),
+  ('List*', 'scatterClause'),
+  ('bool', 'isTableValueSelect'),
   ('Node*', 'limitOffset'),
   ('Node*', 'limitCount'),
-  ('LimitOption', 'limitOption'),
   ('List*', 'rowMarks'),
   ('Node*', 'setOperations'),
   ('List*', 'constraintDeps'),
   ('List*', 'withCheckOptions'),
+  ('struct GpPolicy*', 'intoPolicy'),
+  ('ParentStmtType', 'parentStmtType'),
   ('int', 'stmt_location'),
   ('int', 'stmt_len'),
+  ('bool', 'expandMatViews'),
 ]
 
 TypeName = [
@@ -810,15 +808,13 @@ RangeTblEntry = [
   ('char', 'relkind'),
   ('int', 'rellockmode'),
   ('struct TableSampleClause*', 'tablesample'),
-  ('Index', 'perminfoindex'),
   ('Query*', 'subquery'),
   ('bool', 'security_barrier'),
+  ('struct PlannerInfo*', 'subquery_root'),
+  ('List*', 'subquery_rtable'),
+  ('List*', 'subquery_pathkeys'),
   ('JoinType', 'jointype'),
-  ('int', 'joinmergedcols'),
   ('List*', 'joinaliasvars'),
-  ('List*', 'joinleftcols'),
-  ('List*', 'joinrightcols'),
-  ('Alias*', 'join_using_alias'),
   ('List*', 'functions'),
   ('bool', 'funcordinality'),
   ('TableFunc*', 'tablefunc'),
@@ -831,11 +827,18 @@ RangeTblEntry = [
   ('List*', 'colcollations'),
   ('char*', 'enrname'),
   ('Cardinality', 'enrtuples'),
+  ('bool', 'forceDistRandom'),
   ('Alias*', 'alias'),
   ('Alias*', 'eref'),
   ('bool', 'lateral'),
   ('bool', 'inh'),
   ('bool', 'inFromCl'),
+  ('AclMode', 'requiredPerms'),
+  ('Oid', 'checkAsUser'),
+  ('Bitmapset*', 'selectedCols'),
+  ('Bitmapset*', 'insertedCols'),
+  ('Bitmapset*', 'updatedCols'),
+  ('Bitmapset*', 'extraUpdatedCols'),
   ('List*', 'securityQuals'),
 ]
 
@@ -1095,18 +1098,18 @@ SelectStmt = [
   ('List*', 'fromClause'),
   ('Node*', 'whereClause'),
   ('List*', 'groupClause'),
-  ('bool', 'groupDistinct'),
   ('Node*', 'havingClause'),
   ('List*', 'windowClause'),
+  ('List*', 'scatterClause'),
   ('List*', 'valuesLists'),
   ('List*', 'sortClause'),
   ('Node*', 'limitOffset'),
   ('Node*', 'limitCount'),
-  ('LimitOption', 'limitOption'),
   ('List*', 'lockingClause'),
   ('WithClause*', 'withClause'),
   ('SetOperation', 'op'),
   ('bool', 'all'),
+  ('bool', 'disableLockingOptimization'),
   ('struct SelectStmt*', 'larg'),
   ('struct SelectStmt*', 'rarg'),
 ]
@@ -2236,11 +2239,10 @@ EquivalenceClass = [
 EquivalenceMember = [
   ('Expr*', 'em_expr'),
   ('Relids', 'em_relids'),
+  ('Relids', 'em_nullable_relids'),
   ('bool', 'em_is_const'),
   ('bool', 'em_is_child'),
   ('Oid', 'em_datatype'),
-  ('JoinDomain*', 'em_jdomain'),
-  ('struct EquivalenceMember*', 'em_parent'),
 ]
 
 PathKey = [
@@ -2255,7 +2257,6 @@ PathTarget = [
   ('Index*', 'sortgrouprefs'),
   ('QualCost', 'cost'),
   ('int', 'width'),
-  ('VolatileFunctionStatus', 'has_volatile_expr'),
 ]
 
 ParamPathInfo = [
@@ -2263,20 +2264,6 @@ ParamPathInfo = [
   ('Cardinality', 'ppi_rows'),
   ('List*', 'ppi_clauses'),
   ('Bitmapset*', 'ppi_serials'),
-]
-
-Path = [
-  ('NodeTag', 'pathtype'),
-  ('RelOptInfo*', 'parent'),
-  ('PathTarget*', 'pathtarget'),
-  ('ParamPathInfo*', 'param_info'),
-  ('bool', 'parallel_aware'),
-  ('bool', 'parallel_safe'),
-  ('int', 'parallel_workers'),
-  ('Cardinality', 'rows'),
-  ('Cost', 'startup_cost'),
-  ('Cost', 'total_cost'),
-  ('List*', 'pathkeys'),
 ]
 
 IndexPath = [
@@ -2318,11 +2305,6 @@ BitmapOrPath = [
 TidPath = [
   ('Path', 'path'),
   ('List*', 'tidquals'),
-]
-
-TidRangePath = [
-  ('Path', 'path'),
-  ('List*', 'tidrangequals'),
 ]
 
 SubqueryScanPath = [
@@ -2367,17 +2349,6 @@ MaterialPath = [
   ('Path*', 'subpath'),
 ]
 
-MemoizePath = [
-  ('Path', 'path'),
-  ('Path*', 'subpath'),
-  ('List*', 'hash_operators'),
-  ('List*', 'param_exprs'),
-  ('bool', 'singlerow'),
-  ('bool', 'binary_mode'),
-  ('Cardinality', 'calls'),
-  ('uint32', 'est_entries'),
-]
-
 UniquePath = [
   ('Path', 'path'),
   ('Path*', 'subpath'),
@@ -2406,10 +2377,6 @@ JoinPath = [
   ('Path*', 'outerjoinpath'),
   ('Path*', 'innerjoinpath'),
   ('List*', 'joinrestrictinfo'),
-]
-
-NestPath = [
-  ('JoinPath', 'jpath'),
 ]
 
 MergePath = [
@@ -2468,9 +2435,9 @@ AggPath = [
   ('AggStrategy', 'aggstrategy'),
   ('AggSplit', 'aggsplit'),
   ('Cardinality', 'numGroups'),
-  ('uint64', 'transitionSpace'),
   ('List*', 'groupClause'),
   ('List*', 'qual'),
+  ('bool', 'streaming'),
 ]
 
 GroupingSetData = [
@@ -2491,9 +2458,9 @@ GroupingSetsPath = [
   ('Path', 'path'),
   ('Path*', 'subpath'),
   ('AggStrategy', 'aggstrategy'),
+  ('AggSplit', 'aggsplit'),
   ('List*', 'rollups'),
   ('List*', 'qual'),
-  ('uint64', 'transitionSpace'),
 ]
 
 MinMaxAggPath = [
@@ -2560,28 +2527,69 @@ LimitPath = [
   ('Path*', 'subpath'),
   ('Node*', 'limitOffset'),
   ('Node*', 'limitCount'),
-  ('LimitOption', 'limitOption'),
+]
+
+CdbMotionPath = [
+  ('Path', 'path'),
+  ('Path*', 'subpath'),
+  ('bool', 'is_explicit_motion'),
+  ('GpPolicy*', 'policy'),
+]
+
+AppendOnlyPath = [
+  ('Path', 'path'),
+]
+
+AOCSPath = [
+  ('Path', 'path'),
+]
+
+PartitionSelectorPath = [
+  ('Path', 'path'),
+  ('Path*', 'subpath'),
+  ('int', 'paramid'),
+  ('struct PartitionPruneInfo*', 'part_prune_info'),
+]
+
+CtePath = [
+  ('Path', 'path'),
+  ('Path*', 'subpath;'),
+]
+
+TableFunctionScanPath = [
+  ('Path', 'path'),
+  ('Path*', 'subpath;'),
+]
+
+TupleSplitPath = [
+  ('Path', 'path'),
+  ('Path*', 'subpath'),
+  ('List*', 'groupClause'),
+  ('List*', 'dqa_expr_lst'),
+]
+
+SplitUpdatePath = [
+  ('Path', 'path'),
+  ('Path*', 'subpath'),
+  ('Index', 'resultRelation'),
 ]
 
 RestrictInfo = [
   ('Expr*', 'clause'),
   ('bool', 'is_pushed_down'),
+  ('bool', 'outerjoin_delayed'),
   ('bool', 'can_join'),
   ('bool', 'pseudoconstant'),
-  ('bool', 'has_clone'),
-  ('bool', 'is_clone'),
   ('bool', 'leakproof'),
-  ('VolatileFunctionStatus', 'has_volatile'),
   ('Index', 'security_level'),
-  ('int', 'num_base_rels'),
+  ('bool', 'contain_outer_query_references'),
   ('Relids', 'clause_relids'),
   ('Relids', 'required_relids'),
-  ('Relids', 'incompatible_relids'),
   ('Relids', 'outer_relids'),
+  ('Relids', 'nullable_relids'),
   ('Relids', 'left_relids'),
   ('Relids', 'right_relids'),
   ('Expr*', 'orclause'),
-  ('int', 'rinfo_serial'),
   ('EquivalenceClass*', 'parent_ec'),
   ('QualCost', 'eval_cost'),
   ('Selectivity', 'norm_selec'),
@@ -2591,15 +2599,14 @@ RestrictInfo = [
   ('EquivalenceClass*', 'right_ec'),
   ('EquivalenceMember*', 'left_em'),
   ('EquivalenceMember*', 'right_em'),
-  ('List*', 'scansel_cache'),
+  # MergeScanSelCache   not a Node
+  # ('List*', 'scansel_cache'),
   ('bool', 'outer_is_left'),
   ('Oid', 'hashjoinoperator'),
   ('Selectivity', 'left_bucketsize'),
   ('Selectivity', 'right_bucketsize'),
   ('Selectivity', 'left_mcvfreq'),
   ('Selectivity', 'right_mcvfreq'),
-  ('Oid', 'left_hasheqoperator'),
-  ('Oid', 'right_hasheqoperator'),
 ]
 
 PlaceHolderVar = [
@@ -2700,20 +2707,25 @@ AggTransInfo = [
 
 PlannedStmt = [
   ('CmdType', 'commandType'),
+  ('PlanGenerator', 'planGen'),
   ('uint64', 'queryId'),
   ('bool', 'hasReturning'),
   ('bool', 'hasModifyingCTE'),
   ('bool', 'canSetTag'),
   ('bool', 'transientPlan'),
+  ('bool', 'oneoffPlan'),
+  ('Oid', 'simplyUpdatableRel'),
   ('bool', 'dependsOnRole'),
   ('bool', 'parallelModeNeeded'),
   ('int', 'jitFlags'),
   ('struct Plan*', 'planTree'),
+  ('int', 'numSlices'),
+  ('struct PlanSlice*', 'slices'),
   ('List*', 'rtable'),
-  ('List*', 'permInfos'),
   ('List*', 'resultRelations'),
-  ('List*', 'appendRelations'),
+  ('List*', 'rootResultRelations'),
   ('List*', 'subplans'),
+  ('int*', 'subplan_sliceIds'),
   ('Bitmapset*', 'rewindPlanIDs'),
   ('List*', 'rowMarks'),
   ('List*', 'relationOids'),
@@ -2722,24 +2734,12 @@ PlannedStmt = [
   ('Node*', 'utilityStmt'),
   ('int', 'stmt_location'),
   ('int', 'stmt_len'),
-]
-
-Plan = [
-  ('Cost', 'startup_cost'),
-  ('Cost', 'total_cost'),
-  ('Cardinality', 'plan_rows'),
-  ('int', 'plan_width'),
-  ('bool', 'parallel_aware'),
-  ('bool', 'parallel_safe'),
-  ('bool', 'async_capable'),
-  ('int', 'plan_node_id'),
-  ('List*', 'targetlist'),
-  ('List*', 'qual'),
-  ('struct Plan*', 'lefttree'),
-  ('struct Plan*', 'righttree'),
-  ('List*', 'initPlan'),
-  ('Bitmapset*', 'extParam'),
-  ('Bitmapset*', 'allParam'),
+  ('struct GpPolicy*', 'intoPolicy'),
+  ('uint64', 'query_mem'),
+  ('IntoClause*', 'intoClause'),
+  ('CopyIntoClause*', 'copyIntoClause'),
+  ('RefreshClause*', 'refreshClause'),
+  ('int8', 'metricsQueryType'),
 ]
 
 Result = [
@@ -2940,16 +2940,11 @@ CustomScan = [
   ('struct CustomScanMethods*', 'methods'),
 ]
 
-Join = [
-  ('Plan', 'plan'),
-  ('JoinType', 'jointype'),
-  ('bool', 'inner_unique'),
-  ('List*', 'joinqual'),
-]
-
 NestLoop = [
   ('Join', 'join'),
   ('List*', 'nestParams'),
+  ('bool', 'shared_outer'),
+  ('bool', 'singleton_outer'),
 ]
 
 NestLoopParam = [
@@ -2965,6 +2960,7 @@ MergeJoin = [
   ('Oid*', 'mergeCollations'),
   ('int*', 'mergeStrategies'),
   ('bool*', 'mergeNullsFirst'),
+  ('bool', 'unique_outer'),
 ]
 
 HashJoin = [
@@ -3022,10 +3018,11 @@ Agg = [
   ('Oid*', 'grpOperators'),
   ('Oid*', 'grpCollations'),
   ('long', 'numGroups'),
-  ('uint64', 'transitionSpace'),
   ('Bitmapset*', 'aggParams'),
   ('List*', 'groupingSets'),
   ('List*', 'chain'),
+  ('bool', 'streaming'),
+  ('Index', 'agg_expr_id'),
 ]
 
 WindowAgg = [
@@ -3113,11 +3110,23 @@ Limit = [
   ('Plan', 'plan'),
   ('Node*', 'limitOffset'),
   ('Node*', 'limitCount'),
-  ('LimitOption', 'limitOption'),
-  ('int', 'uniqNumCols'),
-  ('AttrNumber*', 'uniqColIdx'),
-  ('Oid*', 'uniqOperators'),
-  ('Oid*', 'uniqCollations'),
+]
+
+Motion = [
+  ('Plan', 'plan'),
+  ('MotionType',  'motionType'),
+  ('bool', 'sendSorted'),
+  ('int', 'motionID'),
+  ('List*', 'hashExprs'),
+  ('Oid*', 'hashFuncs'),
+  ('int', 'numHashSegments'),
+  ('AttrNumber', 'segidColIdx'),
+  ('int', 'numSortCols'),
+  ('AttrNumber*', 'sortColIdx'),
+  ('Oid*', 'sortOperators'),
+  ('Oid*', 'collations'),
+  ('bool*', 'nullsFirst'),
+  ('PlanSlice*', 'senderSliceInfo'),
 ]
 
 PlanRowMark = [
@@ -3175,26 +3184,6 @@ ExtensibleNode = [
   ('char*', 'extnodename'),
 ]
 
-Integer = [
-  ('int', 'ival'),
-]
-
-Float = [
-  ('char*', 'fval'),
-]
-
-Boolean = [
-  ('bool', 'boolval'),
-]
-
-String = [
-  ('char*', 'sval'),
-]
-
-BitString = [
-  ('char*', 'bsval'),
-]
-
 ForeignKeyCacheInfo = [
   ('Oid', 'conoid'),
   ('Oid', 'conrelid'),
@@ -3203,4 +3192,46 @@ ForeignKeyCacheInfo = [
   ('AttrNumber[INDEX_MAX_KEYS]', 'conkey'),
   ('AttrNumber[INDEX_MAX_KEYS]', 'confkey'),
   ('Oid[INDEX_MAX_KEYS]', 'conpfeqop'),
+]
+
+Flow = [
+  ('NodeTag', 'type'),
+  ('FlowType', 'flotype'),
+  ('CdbLocusType', 'locustype'),
+  ('int', 'segindex'),
+  ('int', 'numsegments'),
+]
+
+PlanSlice = [
+  ('int', 'sliceIndex'),
+  ('int', 'parentIndex'),
+  ('GangType', 'gangType'),
+  ('int', 'numsegments'),
+  ('int', 'segindex'),
+  ('DirectDispatchInfo', 'directDispatch'),
+]
+
+DirectDispatchInfo = [
+  ('bool', 'isDirectDispatch'),
+  ('List*', 'contentIds'),
+  ('bool', 'haveProcessedAnyCalculations'),
+]
+
+CdbPathLocus = [
+  ('CdbLocusType', 'locustype'),
+  ('List*', 'distkey'),
+  ('int', 'numsegments'),
+]
+
+GpPolicy = [
+  ('GpPolicyType', 'ptype'),
+  ('int', 'numsegments'),
+  ('int', 'nattrs'),
+  ('AttrNumber*', 'attrs'),
+  ('Oid*', 'opclasses'),
+]
+
+DistributionKey = [
+  ('List*', 'dk_eclasses'),
+  ('Oid', 'dk_opfamily'),
 ]
