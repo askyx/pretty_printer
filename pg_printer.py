@@ -422,7 +422,7 @@ def getchars(arg, qoute = True, len = 100):
     if qoute:
         retval += '\''
 
-    i=0
+    i = 0
     while arg[i] != ord("\0") and i < len:
         character = int(arg[i].cast(gdb.lookup_type("char")))
         if chr(character) in string.printable:
@@ -641,6 +641,13 @@ def list_nth_node(list, index):
 #             pfunc = getTypeOutputInfo(int(self.val['consttype']))
 #             return str(gdb.parse_and_eval('OidOutputFunctionCall({}, {})'.format(pfunc[0], int(self.val['constvalue']))).dereference())
 
+def gen_base_any_node_printer_class():
+    class Printer(BasePrinter):
+        def to_string(self):
+            return getchars(gdb.parse_and_eval('pretty_format_node_dump(nodeToString({}))'.format(self.val.reference_value().address)), False, 100000000)
+            
+    Printer.__name__ = 'AnyNode'
+    printer.add_printer('AnyNode', '^Node$', Printer)
 
 @register_printer('Plan')
 class PlanPrinter(Printer):
@@ -1056,29 +1063,40 @@ gdb.printing.register_pretty_printer(
 
 class printVerbose(gdb.Parameter):
     def __init__(self) -> None:
-        super(printVerbose, self).__init__('print pg_pretty', gdb.COMMAND_DATA, gdb.PARAM_BOOLEAN)
-        self.value = True
+        super(printVerbose, self).__init__('print pg_pretty', gdb.COMMAND_DATA, gdb.PARAM_ENUM, ['off', 'origin', 'trace', 'info'])
+        self.value = 'trace'
 
     def get_set_string(self) -> str:
-        if self.value == False:
+        if self.value == 'off':
             for p in printer.subprinters:
                 p.enabled = False
-        else:
+            return 'All printers are disabled, just print the object with default behavior'
+        elif self.value == 'origin':
+            for p in printer.subprinters:
+                p.enabled = False
+                if p.name == 'AnyNode':
+                    p.enabled = True
+            return 'Print all objects that inherit from ''Node'' using the built-in ''pprint'' function, attention, this will not used while gdb a core file'
+        elif self.value == 'trace':
             for p in printer.subprinters:
                 p.enabled = True
+                if p.name == 'AnyNode':
+                    p.enabled = False
+            return 'Print all objects like ''pprint'' but in python, work anywhere'
+        elif self.value == 'info':
+            for p in printer.subprinters:
+                if p.name == 'AnyNode':
+                    p.enabled = False
+            return 'Trying to call some built-in functions to simple object, but may loss of information'
 
     def get_show_string(self, pvalue):
-        if self.value == True:
-           return "Current value is 'True', you can 'set print level'  "
-        else:
-           return "Current value is 'False'"
+        if self.value == 'off':
+            return 'Current value is {}, All printers are disabled, just print the object with default behavior'.format(self.value)
+        elif self.value == 'origin':
+            return 'Current value is {}, Print all objects that inherit from ''Node'' using the built-in ''pprint'' function, attention, this will not used while gdb a core file'.format(self.value)
+        elif self.value == 'trace':
+            return 'Current value is {}, Print all objects like ''pprint'' but in python, work anywhere'.format(self.value)
+        elif self.value == 'info':
+            return 'Current value is {}, Trying to call some built-in functions to simple object, but may loss of information'.format(self.value)
 
-class printerTurn(gdb.Parameter):
-    def __init__(self) -> None:
-        super(printerTurn, self).__init__('print level', gdb.COMMAND_DATA, gdb.PARAM_ENUM, ['trace', 'info'])
-        self.enum = ['trace', 'info']
-        self.value = self.enum[0]
-
-
-printerTurn()
 printVerbose()
