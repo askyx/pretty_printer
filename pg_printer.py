@@ -45,7 +45,7 @@ def getchars(arg, qoute = True, len = 100):
     if qoute:
         retval += '\''
 
-    i=0
+    i = 0
     while arg[i] != ord("\0") and i < len:
         character = int(arg[i].cast(gdb.lookup_type("char")))
         if chr(character) in string.printable:
@@ -163,22 +163,6 @@ class BasePrinter:
 
     def display_hint(self):
         return ''
-
-@register_printer('Bitmapset')
-class BitmapsetPrinter(BasePrinter):
-    def to_string(self):
-        list = []
-        index = int(gdb.parse_and_eval('bms_next_member({}, {})'.format(self.val.reference_value().address, -1)))
-        while index >= 0:
-            list.append(index)
-            index = int(gdb.parse_and_eval('bms_next_member({}, {})'.format(self.val.reference_value().address, index)))
-
-        return str(list)
-
-@register_printer('Relids')
-class RelidsPrinter(BasePrinter):
-    def to_string(self):
-        return self.val.address.cast(gdb.lookup_type('Bitmapset').pointer()).dereference()
 
 pl = {
     'Alias': Alias,                 'RangeVar': RangeVar,       'TableFunc': TableFunc,             'IntoClause': IntoClause,
@@ -527,6 +511,22 @@ class ValuePrinter(BasePrinter):
             ret += getchars(self.val['val']['str'])
         return '{}[ {} ]'.format(vt, ret)
 
+# TODO: remove BitmapsetPrinter  RelidsPrinter if gdb.parameter('print pg_pretty') == 'trace'
+@register_printer('Bitmapset')
+class BitmapsetPrinter(BasePrinter):
+    def to_string(self):
+        list = []
+        index = int(gdb.parse_and_eval('bms_next_member({}, {})'.format(self.val.reference_value().address, -1)))
+        while index >= 0:
+            list.append(index)
+            index = int(gdb.parse_and_eval('bms_next_member({}, {})'.format(self.val.reference_value().address, index)))
+
+        return str(list)
+
+@register_printer('Relids')
+class RelidsPrinter(BasePrinter):
+    def to_string(self):
+        return self.val.address.cast(gdb.lookup_type('Bitmapset').pointer()).dereference()
 
 # @register_printer('Const')
 # class ConstPrinter(BasePrinter):
@@ -537,7 +537,15 @@ class ValuePrinter(BasePrinter):
 #             pfunc = getTypeOutputInfo(int(self.val['consttype']))
 #             return str(gdb.parse_and_eval('OidOutputFunctionCall({}, {})'.format(pfunc[0], int(self.val['constvalue']))).dereference())
 
+def gen_base_any_node_printer_class():
+    class Printer(BasePrinter):
+        def to_string(self):
+            return getchars(gdb.parse_and_eval('pretty_format_node_dump(nodeToString({}))'.format(self.val.reference_value().address)), False, 100000000)
+            
+    Printer.__name__ = 'AnyNode'
+    printer.add_printer('AnyNode', '^Node$', Printer)
 
+gen_base_any_node_printer_class()
 
 gdb.printing.register_pretty_printer(
     gdb.current_objfile(),
@@ -545,29 +553,40 @@ gdb.printing.register_pretty_printer(
 
 class printVerbose(gdb.Parameter):
     def __init__(self) -> None:
-        super(printVerbose, self).__init__('print pg_pretty', gdb.COMMAND_DATA, gdb.PARAM_BOOLEAN)
-        self.value = True
+        super(printVerbose, self).__init__('print pg_pretty', gdb.COMMAND_DATA, gdb.PARAM_ENUM, ['off', 'origin', 'trace', 'info'])
+        self.value = 'trace'
 
     def get_set_string(self) -> str:
-        if self.value == False:
+        if self.value == 'off':
             for p in printer.subprinters:
                 p.enabled = False
-        else:
+            return 'All printers are disabled, just print the object with default behavior'
+        elif self.value == 'origin':
+            for p in printer.subprinters:
+                p.enabled = False
+                if p.name == 'AnyNode':
+                    p.enabled = True
+            return 'Print all objects that inherit from ''Node'' using the built-in ''pprint'' function, attention, this will not used while gdb a core file'
+        elif self.value == 'trace':
             for p in printer.subprinters:
                 p.enabled = True
+                if p.name == 'AnyNode':
+                    p.enabled = False
+            return 'Print all objects like ''pprint'' but in python, work anywhere'
+        elif self.value == 'info':
+            for p in printer.subprinters:
+                if p.name == 'AnyNode':
+                    p.enabled = False
+            return 'Trying to call some built-in functions to simple object, but may loss of information'
 
     def get_show_string(self, pvalue):
-        if self.value == True:
-           return "Current value is 'True', you can 'set print level'  "
-        else:
-           return "Current value is 'False'"
+        if self.value == 'off':
+            return 'Current value is {}, All printers are disabled, just print the object with default behavior'.format(self.value)
+        elif self.value == 'origin':
+            return 'Current value is {}, Print all objects that inherit from ''Node'' using the built-in ''pprint'' function, attention, this will not used while gdb a core file'.format(self.value)
+        elif self.value == 'trace':
+            return 'Current value is {}, Print all objects like ''pprint'' but in python, work anywhere'.format(self.value)
+        elif self.value == 'info':
+            return 'Current value is {}, Trying to call some built-in functions to simple object, but may loss of information'.format(self.value)
 
-class printerTurn(gdb.Parameter):
-    def __init__(self) -> None:
-        super(printerTurn, self).__init__('print level', gdb.COMMAND_DATA, gdb.PARAM_ENUM, ['trace', 'info'])
-        self.enum = ['trace', 'info']
-        self.value = self.enum[0]
-
-
-printerTurn()
 printVerbose()
