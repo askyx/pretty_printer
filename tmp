@@ -1,0 +1,82 @@
+typedef struct RangeTblEntry
+{
+	NodeTag		type;
+
+	RTEKind		rtekind;		/* see above */
+	Oid			relid;			/* OID of the relation */
+	char		relkind;		/* relation kind (see pg_class.relkind) */
+	int			rellockmode;	/* lock level that query requires on the rel */
+	struct TableSampleClause *tablesample;	/* sampling info, or NULL */
+	Query	   *subquery;		/* the sub-query */
+	bool		security_barrier;	/* is from security_barrier view? */
+	struct PlannerInfo *subquery_root;
+	List		*subquery_rtable;
+	List		*subquery_pathkeys;
+	JoinType	jointype;		/* type of join */
+	List	   *joinaliasvars;	/* list of alias-var expansions */
+	List	   *functions;		/* list of RangeTblFunction nodes */
+	bool		funcordinality; /* is this called WITH ORDINALITY? */
+	TableFunc  *tablefunc;
+	List	   *values_lists;	/* list of expression lists */
+	char	   *ctename;		/* name of the WITH list item */
+	Index		ctelevelsup;	/* number of query levels up */
+	bool		self_reference; /* is this a recursive self-reference? */
+	List	   *coltypes;		/* OID list of column type OIDs */
+	List	   *coltypmods;		/* integer list of column typmods */
+	List	   *colcollations;	/* OID list of column collation OIDs */
+	char	   *enrname;		/* name of ephemeral named relation */
+	double		enrtuples;		/* estimated or actual from caller */
+	bool		forceDistRandom;
+	Alias	   *alias;			/* user-written alias clause, if any */
+	Alias	   *eref;			/* expanded reference names */
+	bool		lateral;		/* subquery, function, or values is LATERAL? */
+	bool		inh;			/* inheritance requested? */
+	bool		inFromCl;		/* present in FROM clause? */
+	AclMode		requiredPerms;	/* bitmask of required access permissions */
+	Oid			checkAsUser;	/* if valid, check access as this role */
+	Bitmapset  *selectedCols;	/* columns needing SELECT permission */
+	Bitmapset  *insertedCols;	/* columns needing INSERT permission */
+	Bitmapset  *updatedCols;	/* columns needing UPDATE permission */
+	Bitmapset  *extraUpdatedCols;	/* generated columns being updated */
+	List	   *securityQuals;	/* security barrier quals to apply, if any */
+} RangeTblEntry;
+
+RangeTblEntry = [
+  ('RTEKind', 'rtekind'),
+  ('Oid', 'relid'),
+  ('char', 'relkind'),
+  ('int', 'rellockmode'),
+  ('struct TableSampleClause*', 'tablesample'),
+  ('Query*', 'subquery'),
+  ('bool', 'security_barrier'),
+  ('struct PlannerInfo*', 'subquery_root'),
+  ('List*', 'subquery_rtable'),
+  ('List*', 'subquery_pathkeys'),
+  ('JoinType', 'jointype'),
+  ('List*', 'joinaliasvars'),
+  ('List*', 'functions'),
+  ('bool', 'funcordinality'),
+  ('TableFunc*', 'tablefunc'),
+  ('List*', 'values_lists'),
+  ('char*', 'ctename'),
+  ('Index', 'ctelevelsup'),
+  ('bool', 'self_reference'),
+  ('List*', 'coltypes'),
+  ('List*', 'coltypmods'),
+  ('List*', 'colcollations'),
+  ('char*', 'enrname'),
+  ('Cardinality', 'enrtuples'),
+  ('bool', 'forceDistRandom'),
+  ('Alias*', 'alias'),
+  ('Alias*', 'eref'),
+  ('bool', 'lateral'),
+  ('bool', 'inh'),
+  ('bool', 'inFromCl'),
+  ('AclMode', 'requiredPerms'),
+  ('Oid', 'checkAsUser'),
+  ('Bitmapset*', 'selectedCols'),
+  ('Bitmapset*', 'insertedCols'),
+  ('Bitmapset*', 'updatedCols'),
+  ('Bitmapset*', 'extraUpdatedCols'),
+  ('List*', 'securityQuals'),
+]
