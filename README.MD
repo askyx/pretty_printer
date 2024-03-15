@@ -13,6 +13,12 @@ To install the pretty printer, add the following line to your .gdbinit file:
 
 git clone xxx -b [target]
 
+
+cat > ~/.gdbinit <<EOF
+source /path/to/pretty_printer/pg_printer.py
+EOF
+
+
 ```
 
 support 
@@ -51,3 +57,5 @@ This project is licensed under the MIT License.
 
 * 回调问题
   * path 中的 parent 中的 pathlist
+
+* array print
