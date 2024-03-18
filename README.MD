@@ -51,3 +51,5 @@ This project is licensed under the MIT License.
 
 * 回调问题
   * path 中的 parent 中的 pathlist
+
+* array print
