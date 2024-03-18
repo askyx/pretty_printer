@@ -38,20 +38,20 @@ set height 0
 set print pretty on
 set pagination off
 
-source /workspaces/gpdb/pretty_printer/pg_printer.py
-set logging file /workspaces/gpdb/pretty_printer/test.log
+source `pwd`/pg_printer.py
+set logging file `pwd`/test.log
 set logging enabled
 
 handle SIGUSR1 noprint nostop
-
-b planner.c:567
+ 
+b planner.c:420
 command
     p * parse
     p * best_path
     c
 end
 
-b planner.c:729
+b planner.c:520
 command
     p * top_plan
     c
