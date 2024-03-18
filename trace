@@ -37,6 +37,8 @@ set height 0
 
 set print pretty on
 set pagination off
+
+source /workspaces/gpdb/pretty_printer/pg_printer.py
 set logging file /workspaces/gpdb/pretty_printer/test.log
 set logging enabled
 
@@ -49,14 +51,11 @@ command
     c
 end
 
-
 b planner.c:729
 command
     p * top_plan
     c
 end
-
-source /workspaces/gpdb/pretty_printer/pg_printer.py
 
 
 c

@@ -1991,16 +1991,6 @@ class PgPrintCommand(gdb.Command):
         print(format_node(l))
 
 
-class printerPara(gdb.Parameter):
-    def __init__(self) -> None:
-        super(printerPara, self).__init__('xxxxxx', gdb.COMMAND_DATA, gdb.PARAM_BOOLEAN)
-        self.value = True
-
-    def get_set_string(self) -> str:
-        return ''
-    
-
 PgPrintCommand()
-printerPara()
 
 
