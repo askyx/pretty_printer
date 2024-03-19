@@ -120,7 +120,9 @@ class BasePrinter:
         list = []
         size = 0
         if k[0:11] == 'list_length':
-            size = int(list_length(self.val[str(k[k.index('(') + 1 : k.index(')')])]))
+            val = self.val[str(k[k.index('(') + 1 : k.index(')')])]
+            if str(val) != '0x0':
+                size = int(list_length(val))
         else:
             size = int(self.get_item(k)) 
 

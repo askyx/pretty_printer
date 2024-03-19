@@ -2923,20 +2923,20 @@ ModifyTablePath = [
   ('Cost', 'path.startup_cost'),
   ('Cost', 'path.total_cost'),
   ('List*', 'path.pathkeys'),
-  ('Path*', 'subpath'),
   ('CmdType', 'operation'),
   ('bool', 'canSetTag'),
   ('Index', 'nominalRelation'),
   ('Index', 'rootRelation'),
   ('bool', 'partColsUpdated'),
   ('List*', 'resultRelations'),
-  ('List*', 'updateColnosLists'),
+  ('List*', 'subpaths'),
+  # ('List*', 'subroots'),
   ('List*', 'withCheckOptionLists'),
   ('List*', 'returningLists'),
   ('List*', 'rowMarks'),
   ('OnConflictExpr*', 'onconflict'),
   ('int', 'epqParam'),
-  ('List*', 'mergeActionLists'),
+  ('bool', 'under_cluster'),
 ]
 
 LimitPath = [
