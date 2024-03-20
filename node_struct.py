@@ -46,10 +46,9 @@ Var = [
   ('Oid', 'vartype'),
   ('int32', 'vartypmod'),
   ('Oid', 'varcollid'),
-  ('Bitmapset*', 'varnullingrels'),
   ('Index', 'varlevelsup'),
-  ('Index', 'varnosyn'),
-  ('AttrNumber', 'varattnosyn'),
+  ('Index', 'varnoold'),
+  ('AttrNumber', 'varoattno'),
   ('int', 'location'),
 ]
 
@@ -78,6 +77,8 @@ Aggref = [
   ('Oid', 'aggtype'),
   ('Oid', 'aggcollid'),
   ('Oid', 'inputcollid'),
+  ('Oid', 'aggtrantype'),
+  ('bool', 'agghas_collectfn'),
   ('Oid', 'aggtranstype'),
   ('List*', 'aggargtypes'),
   ('List*', 'aggdirectargs'),
@@ -88,11 +89,8 @@ Aggref = [
   ('bool', 'aggstar'),
   ('bool', 'aggvariadic'),
   ('char', 'aggkind'),
-  ('bool', 'aggpresorted'),
   ('Index', 'agglevelsup'),
   ('AggSplit', 'aggsplit'),
-  ('int', 'aggno'),
-  ('int', 'aggtransno'),
   ('int', 'location'),
 ]
 
@@ -117,17 +115,7 @@ WindowFunc = [
   ('int', 'location'),
 ]
 
-SubscriptingRef = [
-  ('Oid', 'refcontainertype'),
-  ('Oid', 'refelemtype'),
-  ('Oid', 'refrestype'),
-  ('int32', 'reftypmod'),
-  ('Oid', 'refcollid'),
-  ('List*', 'refupperindexpr'),
-  ('List*', 'reflowerindexpr'),
-  ('Expr*', 'refexpr'),
-  ('Expr*', 'refassgnexpr'),
-]
+
 
 FuncExpr = [
   ('Oid', 'funcid'),
@@ -184,8 +172,6 @@ NullIfExpr = [
 ScalarArrayOpExpr = [
   ('Oid', 'opno'),
   ('Oid', 'opfuncid'),
-  ('Oid', 'hashfuncid'),
-  ('Oid', 'negfuncid'),
   ('bool', 'useOr'),
   ('Oid', 'inputcollid'),
   ('List*', 'args'),
@@ -368,43 +354,6 @@ XmlExpr = [
   ('int', 'location'),
 ]
 
-JsonFormat = [
-  ('JsonFormatType', 'format_type'),
-  ('JsonEncoding', 'encoding'),
-  ('int', 'location'),
-]
-
-JsonReturning = [
-  ('JsonFormat*', 'format'),
-  ('Oid', 'typid'),
-  ('int32', 'typmod'),
-]
-
-JsonValueExpr = [
-  ('Expr*', 'raw_expr'),
-  ('Expr*', 'formatted_expr'),
-  ('JsonFormat*', 'format'),
-]
-
-JsonConstructorExpr = [
-  ('JsonConstructorType', 'type'),
-  ('List*', 'args'),
-  ('Expr*', 'func'),
-  ('Expr*', 'coercion'),
-  ('JsonReturning*', 'returning'),
-  ('bool', 'absent_on_null'),
-  ('bool', 'unique'),
-  ('int', 'location'),
-]
-
-JsonIsPredicate = [
-  ('Node*', 'expr'),
-  ('JsonFormat*', 'format'),
-  ('JsonValueType', 'item_type'),
-  ('bool', 'unique_keys'),
-  ('int', 'location'),
-]
-
 NullTest = [
   ('Expr*', 'arg'),
   ('NullTestType', 'nulltesttype'),
@@ -478,7 +427,6 @@ JoinExpr = [
   ('Node*', 'larg'),
   ('Node*', 'rarg'),
   ('List*', 'usingClause'),
-  ('Alias*', 'join_using_alias'),
   ('Node*', 'quals'),
   ('Alias*', 'alias'),
   ('int', 'rtindex'),
@@ -503,7 +451,7 @@ OnConflictExpr = [
 Query = [
   ('CmdType', 'commandType'),
   ('QuerySource', 'querySource'),
-  ('uint64', 'queryId'),
+  ('uint32', 'queryId'),
   ('bool', 'canSetTag'),
   ('Node*', 'utilityStmt'),
   ('int', 'resultRelation'),
@@ -516,19 +464,20 @@ Query = [
   ('bool', 'hasModifyingCTE'),
   ('bool', 'hasForUpdate'),
   ('bool', 'hasRowSecurity'),
-  ('bool', 'isReturn'),
+  ('bool', 'isSingleValues'),
+  ('bool', 'isMultiValues'),
+  ('bool', 'hasUnshippableTriggers'),
+  ('bool', 'hasCoordFuncs'),
+  ('char*', 'copy_filename'),
+  ('Bitmapset*', 'conflict_cols'),
   ('List*', 'cteList'),
   ('List*', 'rtable'),
-  ('List*', 'rteperminfos'),
   ('FromExpr*', 'jointree'),
-  ('List*', 'mergeActionList'),
-  ('bool', 'mergeUseOuterJoin'),
   ('List*', 'targetList'),
   ('OverridingKind', 'override'),
   ('OnConflictExpr*', 'onConflict'),
   ('List*', 'returningList'),
   ('List*', 'groupClause'),
-  ('bool', 'groupDistinct'),
   ('List*', 'groupingSets'),
   ('Node*', 'havingQual'),
   ('List*', 'windowClause'),
@@ -536,7 +485,6 @@ Query = [
   ('List*', 'sortClause'),
   ('Node*', 'limitOffset'),
   ('Node*', 'limitCount'),
-  ('LimitOption', 'limitOption'),
   ('List*', 'rowMarks'),
   ('Node*', 'setOperations'),
   ('List*', 'constraintDeps'),
@@ -803,19 +751,14 @@ PartitionCmd = [
 
 RangeTblEntry = [
   ('RTEKind', 'rtekind'),
+  ('char*', 'relname'),
   ('Oid', 'relid'),
   ('char', 'relkind'),
-  ('int', 'rellockmode'),
   ('struct TableSampleClause*', 'tablesample'),
-  ('Index', 'perminfoindex'),
   ('Query*', 'subquery'),
   ('bool', 'security_barrier'),
   ('JoinType', 'jointype'),
-  ('int', 'joinmergedcols'),
   ('List*', 'joinaliasvars'),
-  ('List*', 'joinleftcols'),
-  ('List*', 'joinrightcols'),
-  ('Alias*', 'join_using_alias'),
   ('List*', 'functions'),
   ('bool', 'funcordinality'),
   ('TableFunc*', 'tablefunc'),
@@ -827,24 +770,24 @@ RangeTblEntry = [
   ('List*', 'coltypmods'),
   ('List*', 'colcollations'),
   ('char*', 'enrname'),
-  ('Cardinality', 'enrtuples'),
+  ('double', 'enrtuples'),
   ('Alias*', 'alias'),
   ('Alias*', 'eref'),
   ('bool', 'lateral'),
   ('bool', 'inh'),
   ('bool', 'inFromCl'),
-  ('List*', 'securityQuals'),
-]
-
-RTEPermissionInfo = [
-  ('Oid', 'relid'),
-  ('bool', 'inh'),
   ('AclMode', 'requiredPerms'),
   ('Oid', 'checkAsUser'),
   ('Bitmapset*', 'selectedCols'),
   ('Bitmapset*', 'insertedCols'),
   ('Bitmapset*', 'updatedCols'),
+  ('List*', 'securityQuals'),
+  ('bool', 'intervalparent'),
+  ('bool', 'isdefault'),
+  ('Node*', 'partvalue'),
 ]
+
+
 
 RangeTblFunction = [
   ('Node*', 'funcexpr'),
@@ -930,25 +873,6 @@ OnConflictClause = [
   ('int', 'location'),
 ]
 
-CTESearchClause = [
-  ('List*', 'search_col_list'),
-  ('bool', 'search_breadth_first'),
-  ('char*', 'search_seq_column'),
-  ('int', 'location'),
-]
-
-CTECycleClause = [
-  ('List*', 'cycle_col_list'),
-  ('char*', 'cycle_mark_column'),
-  ('Node*', 'cycle_mark_value'),
-  ('Node*', 'cycle_mark_default'),
-  ('char*', 'cycle_path_column'),
-  ('int', 'location'),
-  ('Oid', 'cycle_mark_type'),
-  ('int', 'cycle_mark_typmod'),
-  ('Oid', 'cycle_mark_collation'),
-  ('Oid', 'cycle_mark_neop'),
-]
 
 CommonTableExpr = [
   ('char*', 'ctename'),
@@ -966,23 +890,7 @@ CommonTableExpr = [
   ('List*', 'ctecolcollations'),
 ]
 
-MergeWhenClause = [
-  ('bool', 'matched'),
-  ('CmdType', 'commandType'),
-  ('OverridingKind', 'override'),
-  ('Node*', 'condition'),
-  ('List*', 'targetList'),
-  ('List*', 'values'),
-]
 
-MergeAction = [
-  ('bool', 'matched'),
-  ('CmdType', 'commandType'),
-  ('OverridingKind', 'override'),
-  ('Node*', 'qual'),
-  ('List*', 'targetList'),
-  ('List*', 'updateColnos'),
-]
 
 TriggerTransition = [
   ('char*', 'name'),
@@ -990,59 +898,9 @@ TriggerTransition = [
   ('bool', 'isTable'),
 ]
 
-JsonOutput = [
-  ('TypeName*', 'typeName'),
-  ('JsonReturning*', 'returning'),
-]
 
-JsonKeyValue = [
-  ('Expr*', 'key'),
-  ('JsonValueExpr*', 'value'),
-]
 
-JsonObjectConstructor = [
-  ('List*', 'exprs'),
-  ('JsonOutput*', 'output'),
-  ('bool', 'absent_on_null'),
-  ('bool', 'unique'),
-  ('int', 'location'),
-]
 
-JsonArrayConstructor = [
-  ('List*', 'exprs'),
-  ('JsonOutput*', 'output'),
-  ('bool', 'absent_on_null'),
-  ('int', 'location'),
-]
-
-JsonArrayQueryConstructor = [
-  ('Node*', 'query'),
-  ('JsonOutput*', 'output'),
-  ('JsonFormat*', 'format'),
-  ('bool', 'absent_on_null'),
-  ('int', 'location'),
-]
-
-JsonAggConstructor = [
-  ('JsonOutput*', 'output'),
-  ('Node*', 'agg_filter'),
-  ('List*', 'agg_order'),
-  ('struct WindowDef*', 'over'),
-  ('int', 'location'),
-]
-
-JsonObjectAgg = [
-  ('JsonAggConstructor*', 'constructor'),
-  ('JsonKeyValue*', 'arg'),
-  ('bool', 'absent_on_null'),
-  ('bool', 'unique'),
-]
-
-JsonArrayAgg = [
-  ('JsonAggConstructor*', 'constructor'),
-  ('JsonValueExpr*', 'arg'),
-  ('bool', 'absent_on_null'),
-]
 
 RawStmt = [
   ('Node*', 'stmt'),
@@ -1077,13 +935,7 @@ UpdateStmt = [
   ('WithClause*', 'withClause'),
 ]
 
-MergeStmt = [
-  ('RangeVar*', 'relation'),
-  ('Node*', 'sourceRelation'),
-  ('Node*', 'joinCondition'),
-  ('List*', 'mergeWhenClauses'),
-  ('WithClause*', 'withClause'),
-]
+
 
 SelectStmt = [
   ('List*', 'distinctClause'),
@@ -1099,7 +951,6 @@ SelectStmt = [
   ('List*', 'sortClause'),
   ('Node*', 'limitOffset'),
   ('Node*', 'limitCount'),
-  ('LimitOption', 'limitOption'),
   ('List*', 'lockingClause'),
   ('WithClause*', 'withClause'),
   ('SetOperation', 'op'),
@@ -1117,18 +968,6 @@ SetOperationStmt = [
   ('List*', 'colTypmods'),
   ('List*', 'colCollations'),
   ('List*', 'groupClauses'),
-]
-
-ReturnStmt = [
-  ('Node*', 'returnval'),
-]
-
-PLAssignStmt = [
-  ('char*', 'name'),
-  ('List*', 'indirection'),
-  ('int', 'nnames'),
-  ('SelectStmt*', 'val'),
-  ('int', 'location'),
 ]
 
 CreateSchemaStmt = [
@@ -1628,16 +1467,7 @@ CreateStatsStmt = [
   ('bool', 'if_not_exists'),
 ]
 
-StatsElem = [
-  ('char*', 'name'),
-  ('Node*', 'expr'),
-]
 
-AlterStatsStmt = [
-  ('List*', 'defnames'),
-  ('int', 'stxstattarget'),
-  ('bool', 'missing_ok'),
-]
 
 CreateFunctionStmt = [
   ('bool', 'is_procedure'),
@@ -1666,11 +1496,7 @@ DoStmt = [
   ('List*', 'args'),
 ]
 
-CallStmt = [
-  ('FuncCall*', 'funccall'),
-  ('FuncExpr*', 'funcexpr'),
-  ('List*', 'outargs'),
-]
+
 
 RenameStmt = [
   ('ObjectType', 'renameType'),
@@ -1708,11 +1534,6 @@ AlterOwnerStmt = [
 
 AlterOperatorStmt = [
   ('ObjectWithArgs*', 'opername'),
-  ('List*', 'options'),
-]
-
-AlterTypeStmt = [
-  ('List*', 'typeName'),
   ('List*', 'options'),
 ]
 
@@ -1794,10 +1615,6 @@ AlterDatabaseStmt = [
   ('List*', 'options'),
 ]
 
-AlterDatabaseRefreshCollStmt = [
-  ('char*', 'dbname'),
-]
-
 AlterDatabaseSetStmt = [
   ('char*', 'dbname'),
   ('VariableSetStmt*', 'setstmt'),
@@ -1825,11 +1642,6 @@ VacuumStmt = [
   ('bool', 'is_vacuumcmd'),
 ]
 
-VacuumRelation = [
-  ('RangeVar*', 'relation'),
-  ('Oid', 'oid'),
-  ('List*', 'va_cols'),
-]
 
 ExplainStmt = [
   ('Node*', 'query'),
@@ -1934,19 +1746,6 @@ AlterTSConfigurationStmt = [
   ('bool', 'override'),
   ('bool', 'replace'),
   ('bool', 'missing_ok'),
-]
-
-PublicationTable = [
-  ('RangeVar*', 'relation'),
-  ('Node*', 'whereClause'),
-  ('List*', 'columns'),
-]
-
-PublicationObjSpec = [
-  ('PublicationObjSpecType', 'pubobjtype'),
-  ('char*', 'name'),
-  ('PublicationTable*', 'pubtable'),
-  ('int', 'location'),
 ]
 
 CreatePublicationStmt = [
@@ -2085,10 +1884,17 @@ PlannerInfo = [
   ('struct Path*', 'non_recursive_path'),
   ('Relids', 'curOuterRels'),
   ('List*', 'curOuterParams'),
+  ('Bitmapset*', 'curOuterRestrict'),
+  ('Distribution*', 'distribution'),
+  ('bool', 'recursiveOk'),
   # ('bool*', 'isAltSubplan'),
   # ('bool*', 'isUsedSubplan'),
   # ('void*', 'join_search_private'),
   ('bool', 'partColsUpdated'),
+  ('bool', 'haspart_tobe_modify'),
+  ('Index', 'partrelindex'),
+  ('Bitmapset*', 'partpruning'),
+  ('List*', 'udf_quals'),
 ]
 
 RelOptInfo = [
@@ -2152,8 +1958,11 @@ RelOptInfo = [
   ('struct RelOptInfo**', 'part_rels'),
   ('Bitmapset*', 'live_parts'),
   ('Relids', 'all_partrels'),
-  # ('List**', 'partexprs'),
-  # ('List**', 'nullable_partexprs'),
+  ('bool', 'intervalparent'),
+  ('bool', 'isdefault'),
+  ('Bitmapset*', 'childs'),
+  ('int', 'estimate_partidx'),
+  ('ResultRelLocation', 'resultRelLoc'),
 ]
 
 IndexOptInfo = [
@@ -2220,10 +2029,6 @@ StatisticExtInfo = [
   ('List*', 'exprs'),
 ]
 
-JoinDomain = [
-  ('Relids', 'jd_relids'),
-]
-
 EquivalenceClass = [
   ('List*', 'ec_opfamilies'),
   ('Oid', 'ec_collation'),
@@ -2243,11 +2048,10 @@ EquivalenceClass = [
 EquivalenceMember = [
   ('Expr*', 'em_expr'),
   ('Relids', 'em_relids'),
+  ('Relids', 'em_nullable_relids'),
   ('bool', 'em_is_const'),
   ('bool', 'em_is_child'),
   ('Oid', 'em_datatype'),
-  ('JoinDomain*', 'em_jdomain'),
-  # ('struct EquivalenceMember*', 'em_parent'),
 ]
 
 PathKey = [
@@ -2262,7 +2066,6 @@ PathTarget = [
   ('Index[list_length(exprs)]', 'sortgrouprefs'),
   ('QualCost', 'cost'),
   ('int', 'width'),
-  ('VolatileFunctionStatus', 'has_volatile_expr'),
 ]
 
 ParamPathInfo = [
@@ -2284,6 +2087,7 @@ Path = [
   ('Cost', 'startup_cost'),
   ('Cost', 'total_cost'),
   ('List*', 'pathkeys'),
+  ('Distribution*', 'distribution'),
 ]
 
 IndexPath = [
@@ -2298,6 +2102,7 @@ IndexPath = [
   ('Cost', 'path.startup_cost'),
   ('Cost', 'path.total_cost'),
   ('List*', 'path.pathkeys'),
+  ('Distribution*', 'path.distribution'),
   ('IndexOptInfo*', 'indexinfo'),
   ('List*', 'indexclauses'),
   ('List*', 'indexorderbys'),
@@ -2305,14 +2110,6 @@ IndexPath = [
   ('ScanDirection', 'indexscandir'),
   ('Cost', 'indextotalcost'),
   ('Selectivity', 'indexselectivity'),
-]
-
-IndexClause = [
-  ('struct RestrictInfo*', 'rinfo'),
-  ('List*', 'indexquals'),
-  ('bool', 'lossy'),
-  ('AttrNumber', 'indexcol'),
-  ('List*', 'indexcols'),
 ]
 
 BitmapHeapPath = [
@@ -2327,6 +2124,7 @@ BitmapHeapPath = [
   ('Cost', 'path.startup_cost'),
   ('Cost', 'path.total_cost'),
   ('List*', 'path.pathkeys'),
+  ('Distribution*', 'path.distribution'),
   ('Path*', 'bitmapqual'),
 ]
 
@@ -2342,6 +2140,7 @@ BitmapAndPath = [
   ('Cost', 'path.startup_cost'),
   ('Cost', 'path.total_cost'),
   ('List*', 'path.pathkeys'),
+  ('Distribution*', 'path.distribution'),
   ('List*', 'bitmapquals'),
   ('Selectivity', 'bitmapselectivity'),
 ]
@@ -2358,6 +2157,7 @@ BitmapOrPath = [
   ('Cost', 'path.startup_cost'),
   ('Cost', 'path.total_cost'),
   ('List*', 'path.pathkeys'),
+  ('Distribution*', 'path.distribution'),
   ('List*', 'bitmapquals'),
   ('Selectivity', 'bitmapselectivity'),
 ]
@@ -2374,22 +2174,8 @@ TidPath = [
   ('Cost', 'path.startup_cost'),
   ('Cost', 'path.total_cost'),
   ('List*', 'path.pathkeys'),
+  ('Distribution*', 'path.distribution'),
   ('List*', 'tidquals'),
-]
-
-TidRangePath = [
-  ('NodeTag', 'path.pathtype'),
-  ('RelOptInfo*', 'path.parent'),
-  ('PathTarget*', 'path.pathtarget'),
-  ('ParamPathInfo*', 'path.param_info'),
-  ('bool', 'path.parallel_aware'),
-  ('bool', 'path.parallel_safe'),
-  ('int', 'path.parallel_workers'),
-  ('Cardinality', 'path.rows'),
-  ('Cost', 'path.startup_cost'),
-  ('Cost', 'path.total_cost'),
-  ('List*', 'path.pathkeys'),
-  ('List*', 'tidrangequals'),
 ]
 
 SubqueryScanPath = [
@@ -2404,6 +2190,7 @@ SubqueryScanPath = [
   ('Cost', 'path.startup_cost'),
   ('Cost', 'path.total_cost'),
   ('List*', 'path.pathkeys'),
+  ('Distribution*', 'path.distribution'),
   ('Path*', 'subpath'),
 ]
 
@@ -2419,6 +2206,7 @@ ForeignPath = [
   ('Cost', 'path.startup_cost'),
   ('Cost', 'path.total_cost'),
   ('List*', 'path.pathkeys'),
+  ('Distribution*', 'path.distribution'),
   ('Path*', 'fdw_outerpath'),
   ('List*', 'fdw_private'),
 ]
@@ -2435,6 +2223,7 @@ CustomPath = [
   ('Cost', 'path.startup_cost'),
   ('Cost', 'path.total_cost'),
   ('List*', 'path.pathkeys'),
+  ('Distribution*', 'path.distribution'),
   ('uint32', 'flags'),
   ('List*', 'custom_paths'),
   ('List*', 'custom_private'),
@@ -2453,6 +2242,7 @@ AppendPath = [
   ('Cost', 'path.startup_cost'),
   ('Cost', 'path.total_cost'),
   ('List*', 'path.pathkeys'),
+  ('Distribution*', 'path.distribution'),
   ('List*', 'subpaths'),
   ('int', 'first_partial_path'),
   ('Cardinality', 'limit_tuples'),
@@ -2470,24 +2260,12 @@ MergeAppendPath = [
   ('Cost', 'path.startup_cost'),
   ('Cost', 'path.total_cost'),
   ('List*', 'path.pathkeys'),
+  ('Distribution*', 'path.distribution'),
   ('List*', 'subpaths'),
   ('Cardinality', 'limit_tuples'),
 ]
 
-GroupResultPath = [
-  ('NodeTag', 'path.pathtype'),
-  ('RelOptInfo*', 'path.parent'),
-  ('PathTarget*', 'path.pathtarget'),
-  ('ParamPathInfo*', 'path.param_info'),
-  ('bool', 'path.parallel_aware'),
-  ('bool', 'path.parallel_safe'),
-  ('int', 'path.parallel_workers'),
-  ('Cardinality', 'path.rows'),
-  ('Cost', 'path.startup_cost'),
-  ('Cost', 'path.total_cost'),
-  ('List*', 'path.pathkeys'),
-  ('List*', 'quals'),
-]
+
 
 MaterialPath = [
   ('NodeTag', 'path.pathtype'),
@@ -2501,28 +2279,8 @@ MaterialPath = [
   ('Cost', 'path.startup_cost'),
   ('Cost', 'path.total_cost'),
   ('List*', 'path.pathkeys'),
+  ('Distribution*', 'path.distribution'),
   ('Path*', 'subpath'),
-]
-
-MemoizePath = [
-  ('NodeTag', 'path.pathtype'),
-  ('RelOptInfo*', 'path.parent'),
-  ('PathTarget*', 'path.pathtarget'),
-  ('ParamPathInfo*', 'path.param_info'),
-  ('bool', 'path.parallel_aware'),
-  ('bool', 'path.parallel_safe'),
-  ('int', 'path.parallel_workers'),
-  ('Cardinality', 'path.rows'),
-  ('Cost', 'path.startup_cost'),
-  ('Cost', 'path.total_cost'),
-  ('List*', 'path.pathkeys'),
-  ('Path*', 'subpath'),
-  ('List*', 'hash_operators'),
-  ('List*', 'param_exprs'),
-  ('bool', 'singlerow'),
-  ('bool', 'binary_mode'),
-  ('Cardinality', 'calls'),
-  ('uint32', 'est_entries'),
 ]
 
 UniquePath = [
@@ -2537,6 +2295,7 @@ UniquePath = [
   ('Cost', 'path.startup_cost'),
   ('Cost', 'path.total_cost'),
   ('List*', 'path.pathkeys'),
+  ('Distribution*', 'path.distribution'),
   ('Path*', 'subpath'),
   ('UniquePathMethod', 'umethod'),
   ('List*', 'in_operators'),
@@ -2555,6 +2314,7 @@ GatherPath = [
   ('Cost', 'path.startup_cost'),
   ('Cost', 'path.total_cost'),
   ('List*', 'path.pathkeys'),
+  ('Distribution*', 'path.distribution'),
   ('Path*', 'subpath'),
   ('bool', 'single_copy'),
   ('int', 'num_workers'),
@@ -2572,6 +2332,7 @@ GatherMergePath = [
   ('Cost', 'path.startup_cost'),
   ('Cost', 'path.total_cost'),
   ('List*', 'path.pathkeys'),
+  ('Distribution*', 'path.distribution'),
   ('Path*', 'subpath'),
   ('int', 'num_workers'),
 ]
@@ -2588,11 +2349,13 @@ JoinPath = [
   ('Cost', 'path.startup_cost'),
   ('Cost', 'path.total_cost'),
   ('List*', 'path.pathkeys'),
+  ('Distribution*', 'path.distribution'),
   ('JoinType', 'jointype'),
   ('bool', 'inner_unique'),
   ('Path*', 'outerjoinpath'),
   ('Path*', 'innerjoinpath'),
   ('List*', 'joinrestrictinfo'),
+  ('List*', 'movedrestrictinfo'),
 ]
 
 NestPath = [
@@ -2607,11 +2370,13 @@ NestPath = [
   ('Cost', 'jpath.path.startup_cost'),
   ('Cost', 'jpath.path.total_cost'),
   ('List*', 'jpath.path.pathkeys'),
+  ('Distribution*', 'jpath.path.distribution'),
   ('JoinType', 'jpath.jointype'),
   ('bool', 'jpath.inner_unique'),
   ('Path*', 'jpath.outerjoinpath'),
   ('Path*', 'jpath.innerjoinpath'),
   ('List*', 'jpath.joinrestrictinfo'),
+  ('List*', 'jpath.movedrestrictinfo'),
 ]
 
 MergePath = [
@@ -2626,11 +2391,13 @@ MergePath = [
   ('Cost', 'jpath.path.startup_cost'),
   ('Cost', 'jpath.path.total_cost'),
   ('List*', 'jpath.path.pathkeys'),
+  ('Distribution*', 'jpath.path.distribution'),
   ('JoinType', 'jpath.jointype'),
   ('bool', 'jpath.inner_unique'),
   ('Path*', 'jpath.outerjoinpath'),
   ('Path*', 'jpath.innerjoinpath'),
   ('List*', 'jpath.joinrestrictinfo'),
+  ('List*', 'jpath.movedrestrictinfo'),
   # ('List*', 'path_mergeclauses'),
   ('List*', 'outersortkeys'),
   ('List*', 'innersortkeys'),
@@ -2650,14 +2417,15 @@ HashPath = [
   ('Cost', 'jpath.path.startup_cost'),
   ('Cost', 'jpath.path.total_cost'),
   ('List*', 'jpath.path.pathkeys'),
+  ('Distribution*', 'jpath.path.distribution'),
   ('JoinType', 'jpath.jointype'),
   ('bool', 'jpath.inner_unique'),
   ('Path*', 'jpath.outerjoinpath'),
   ('Path*', 'jpath.innerjoinpath'),
   ('List*', 'jpath.joinrestrictinfo'),
+  ('List*', 'jpath.movedrestrictinfo'),
   ('List*', 'path_hashclauses'),
   ('int', 'num_batches'),
-  ('Cardinality', 'inner_rows_total'),
 ]
 
 ProjectionPath = [
@@ -2672,6 +2440,7 @@ ProjectionPath = [
   ('Cost', 'path.startup_cost'),
   ('Cost', 'path.total_cost'),
   ('List*', 'path.pathkeys'),
+  ('Distribution*', 'path.distribution'),
   ('Path*', 'subpath'),
   ('bool', 'dummypp'),
 ]
@@ -2688,6 +2457,7 @@ ProjectSetPath = [
   ('Cost', 'path.startup_cost'),
   ('Cost', 'path.total_cost'),
   ('List*', 'path.pathkeys'),
+  ('Distribution*', 'path.distribution'),
   ('Path*', 'subpath'),
 ]
 
@@ -2703,23 +2473,8 @@ SortPath = [
   ('Cost', 'path.startup_cost'),
   ('Cost', 'path.total_cost'),
   ('List*', 'path.pathkeys'),
+  ('Distribution*', 'path.distribution'),
   ('Path*', 'subpath'),
-]
-
-IncrementalSortPath = [
-  ('NodeTag', 'spath.path.pathtype'),
-  ('RelOptInfo*', 'spath.path.parent'),
-  ('PathTarget*', 'spath.path.pathtarget'),
-  ('ParamPathInfo*', 'spath.path.param_info'),
-  ('bool', 'spath.path.parallel_aware'),
-  ('bool', 'spath.path.parallel_safe'),
-  ('int', 'spath.path.parallel_workers'),
-  ('Cardinality', 'spath.path.rows'),
-  ('Cost', 'spath.path.startup_cost'),
-  ('Cost', 'spath.path.total_cost'),
-  ('List*', 'spath.path.pathkeys'),
-  ('Path*', 'spath.subpath'),
-  ('int', 'nPresortedCols'),
 ]
 
 GroupPath = [
@@ -2734,6 +2489,7 @@ GroupPath = [
   ('Cost', 'path.startup_cost'),
   ('Cost', 'path.total_cost'),
   ('List*', 'path.pathkeys'),
+  ('Distribution*', 'path.distribution'),
   ('Path*', 'subpath'),
   ('List*', 'groupClause'),
   ('List*', 'qual'),
@@ -2751,6 +2507,7 @@ UpperUniquePath = [
   ('Cost', 'path.startup_cost'),
   ('Cost', 'path.total_cost'),
   ('List*', 'path.pathkeys'),
+  ('Distribution*', 'path.distribution'),
   ('Path*', 'subpath'),
   ('int', 'numkeys'),
 ]
@@ -2767,13 +2524,16 @@ AggPath = [
   ('Cost', 'path.startup_cost'),
   ('Cost', 'path.total_cost'),
   ('List*', 'path.pathkeys'),
+  ('Distribution*', 'path.distribution'),
   ('Path*', 'subpath'),
   ('AggStrategy', 'aggstrategy'),
   ('AggSplit', 'aggsplit'),
   ('Cardinality', 'numGroups'),
-  ('uint64', 'transitionSpace'),
   ('List*', 'groupClause'),
   ('List*', 'qual'),
+  ('uint32', 'entrySize'),
+  ('bool', 'hybrid'),
+  ('bool', 'noDistinct'),
 ]
 
 GroupingSetData = [
@@ -2802,11 +2562,11 @@ GroupingSetsPath = [
   ('Cost', 'path.startup_cost'),
   ('Cost', 'path.total_cost'),
   ('List*', 'path.pathkeys'),
+  ('Distribution*', 'path.distribution'),
   ('Path*', 'subpath'),
   ('AggStrategy', 'aggstrategy'),
   ('List*', 'rollups'),
   ('List*', 'qual'),
-  ('uint64', 'transitionSpace'),
 ]
 
 MinMaxAggPath = [
@@ -2821,6 +2581,7 @@ MinMaxAggPath = [
   ('Cost', 'path.startup_cost'),
   ('Cost', 'path.total_cost'),
   ('List*', 'path.pathkeys'),
+  ('Distribution*', 'path.distribution'),
   ('List*', 'mmaggregates'),
   ('List*', 'quals'),
 ]
@@ -2837,6 +2598,7 @@ WindowAggPath = [
   ('Cost', 'path.startup_cost'),
   ('Cost', 'path.total_cost'),
   ('List*', 'path.pathkeys'),
+  ('Distribution*', 'path.distribution'),
   ('Path*', 'subpath'),
   ('WindowClause*', 'winclause'),
   ('List*', 'qual'),
@@ -2855,6 +2617,7 @@ SetOpPath = [
   ('Cost', 'path.startup_cost'),
   ('Cost', 'path.total_cost'),
   ('List*', 'path.pathkeys'),
+  ('Distribution*', 'path.distribution'),
   ('Path*', 'subpath'),
   ('SetOpCmd', 'cmd'),
   ('SetOpStrategy', 'strategy'),
@@ -2876,6 +2639,7 @@ RecursiveUnionPath = [
   ('Cost', 'path.startup_cost'),
   ('Cost', 'path.total_cost'),
   ('List*', 'path.pathkeys'),
+  ('Distribution*', 'path.distribution'),
   ('Path*', 'leftpath'),
   ('Path*', 'rightpath'),
   ('List*', 'distinctList'),
@@ -2895,6 +2659,7 @@ LockRowsPath = [
   ('Cost', 'path.startup_cost'),
   ('Cost', 'path.total_cost'),
   ('List*', 'path.pathkeys'),
+  ('Distribution*', 'path.distribution'),
   ('Path*', 'subpath'),
   ('List*', 'rowMarks'),
   ('int', 'epqParam'),
@@ -2912,6 +2677,7 @@ ModifyTablePath = [
   ('Cost', 'path.startup_cost'),
   ('Cost', 'path.total_cost'),
   ('List*', 'path.pathkeys'),
+  ('Distribution*', 'path.distribution'),
   ('Path*', 'subpath'),
   ('CmdType', 'operation'),
   ('bool', 'canSetTag'),
@@ -2940,31 +2706,28 @@ LimitPath = [
   ('Cost', 'path.startup_cost'),
   ('Cost', 'path.total_cost'),
   ('List*', 'path.pathkeys'),
+  ('Distribution*', 'path.distribution'),
   ('Path*', 'subpath'),
   ('Node*', 'limitOffset'),
   ('Node*', 'limitCount'),
-  ('LimitOption', 'limitOption'),
+  ('bool', 'skipEarlyFinish'),
 ]
 
 RestrictInfo = [
   ('Expr*', 'clause'),
   ('bool', 'is_pushed_down'),
+  ('bool', 'outerjoin_delayed'),
   ('bool', 'can_join'),
   ('bool', 'pseudoconstant'),
-  ('bool', 'has_clone'),
-  ('bool', 'is_clone'),
   ('bool', 'leakproof'),
-  ('VolatileFunctionStatus', 'has_volatile'),
   ('Index', 'security_level'),
-  ('int', 'num_base_rels'),
   ('Relids', 'clause_relids'),
   ('Relids', 'required_relids'),
-  ('Relids', 'incompatible_relids'),
   ('Relids', 'outer_relids'),
+  ('Relids', 'nullable_relids'),
   ('Relids', 'left_relids'),
   ('Relids', 'right_relids'),
   ('Expr*', 'orclause'),
-  ('int', 'rinfo_serial'),
   # ('EquivalenceClass*', 'parent_ec'),
   ('QualCost', 'eval_cost'),
   ('Selectivity', 'norm_selec'),
@@ -2979,10 +2742,6 @@ RestrictInfo = [
   ('Oid', 'hashjoinoperator'),
   ('Selectivity', 'left_bucketsize'),
   ('Selectivity', 'right_bucketsize'),
-  ('Selectivity', 'left_mcvfreq'),
-  ('Selectivity', 'right_mcvfreq'),
-  ('Oid', 'left_hasheqoperator'),
-  ('Oid', 'right_hasheqoperator'),
 ]
 
 PlaceHolderVar = [
@@ -3011,11 +2770,6 @@ SpecialJoinInfo = [
   ('List*', 'semi_rhs_exprs'),
 ]
 
-OuterJoinClauseInfo = [
-  ('RestrictInfo*', 'rinfo'),
-  ('SpecialJoinInfo*', 'sjinfo'),
-]
-
 AppendRelInfo = [
   ('Index', 'parent_relid'),
   ('Index', 'child_relid'),
@@ -3025,13 +2779,6 @@ AppendRelInfo = [
   ('int', 'num_child_cols'),
   ('AttrNumber[num_child_cols]', 'parent_colnos'),
   ('Oid', 'parent_reloid'),
-]
-
-RowIdentityVarInfo = [
-  ('Var*', 'rowidvar'),
-  ('int32', 'rowidwidth'),
-  ('char*', 'rowidname'),
-  ('Relids', 'rowidrels'),
 ]
 
 PlaceHolderInfo = [
@@ -3058,53 +2805,41 @@ PlannerParamItem = [
   ('int', 'paramId'),
 ]
 
-AggInfo = [
-  ('List*', 'aggrefs'),
-  ('int', 'transno'),
-  ('bool', 'shareable'),
-  ('Oid', 'finalfn_oid'),
-]
-
-AggTransInfo = [
-  ('List*', 'args'),
-  ('Expr*', 'aggfilter'),
-  ('Oid', 'transfn_oid'),
-  ('Oid', 'serialfn_oid'),
-  ('Oid', 'deserialfn_oid'),
-  ('Oid', 'combinefn_oid'),
-  ('Oid', 'aggtranstype'),
-  ('int32', 'aggtranstypmod'),
-  ('int', 'transtypeLen'),
-  ('bool', 'transtypeByVal'),
-  ('int32', 'aggtransspace'),
-  # ('Datum', 'initValue'),
-  ('bool', 'initValueIsNull'),
-]
 
 PlannedStmt = [
   ('CmdType', 'commandType'),
-  ('uint64', 'queryId'),
+  ('uint32', 'queryId'),
   ('bool', 'hasReturning'),
   ('bool', 'hasModifyingCTE'),
   ('bool', 'canSetTag'),
   ('bool', 'transientPlan'),
   ('bool', 'dependsOnRole'),
   ('bool', 'parallelModeNeeded'),
-  ('int', 'jitFlags'),
   ('struct Plan*', 'planTree'),
   ('List*', 'rtable'),
-  ('List*', 'permInfos'),
   ('List*', 'resultRelations'),
-  ('List*', 'appendRelations'),
+  ('List*', 'nonleafResultRelations'),
+  ('List*', 'rootResultRelations'),
   ('List*', 'subplans'),
   ('Bitmapset*', 'rewindPlanIDs'),
   ('List*', 'rowMarks'),
   ('List*', 'relationOids'),
   ('List*', 'invalItems'),
-  ('List*', 'paramExecTypes'),
+  ('int', 'nParamExec'),
+  ('int', 'nParamRemote'),
+  ('struct RemoteParam*', 'remoteparams'),
+  ('const char*', 'pname'),
+  ('char', 'distributionType'),
+  ('AttrNumber', 'distributionKey'),
+  ('List*', 'distributionNodes'),
+  ('List*', 'distributionRestrict'),
   ('Node*', 'utilityStmt'),
   ('int', 'stmt_location'),
   ('int', 'stmt_len'),
+  ('bool', 'haspart_tobe_modify'),
+  ('Index', 'partrelindex'),
+  ('Bitmapset*', 'partpruning'),
+  ('bool', 'need_snapshot'),
 ]
 
 Plan = [
@@ -3114,7 +2849,6 @@ Plan = [
   ('int', 'plan_width'),
   ('bool', 'parallel_aware'),
   ('bool', 'parallel_safe'),
-  ('bool', 'async_capable'),
   ('int', 'plan_node_id'),
   ('List*', 'targetlist'),
   ('List*', 'qual'),
@@ -3132,7 +2866,6 @@ Result = [
   ('int', 'plan.plan_width'),
   ('bool', 'plan.parallel_aware'),
   ('bool', 'plan.parallel_safe'),
-  ('bool', 'plan.async_capable'),
   ('int', 'plan.plan_node_id'),
   ('List*', 'plan.targetlist'),
   ('List*', 'plan.qual'),
@@ -3151,7 +2884,6 @@ ProjectSet = [
   ('int', 'plan.plan_width'),
   ('bool', 'plan.parallel_aware'),
   ('bool', 'plan.parallel_safe'),
-  ('bool', 'plan.async_capable'),
   ('int', 'plan.plan_node_id'),
   ('List*', 'plan.targetlist'),
   ('List*', 'plan.qual'),
@@ -3169,7 +2901,6 @@ ModifyTable = [
   ('int', 'plan.plan_width'),
   ('bool', 'plan.parallel_aware'),
   ('bool', 'plan.parallel_safe'),
-  ('bool', 'plan.async_capable'),
   ('int', 'plan.plan_node_id'),
   ('List*', 'plan.targetlist'),
   ('List*', 'plan.qual'),
@@ -3208,7 +2939,6 @@ Append = [
   ('int', 'plan.plan_width'),
   ('bool', 'plan.parallel_aware'),
   ('bool', 'plan.parallel_safe'),
-  ('bool', 'plan.async_capable'),
   ('int', 'plan.plan_node_id'),
   ('List*', 'plan.targetlist'),
   ('List*', 'plan.qual'),
@@ -3221,7 +2951,6 @@ Append = [
   ('List*', 'appendplans'),
   ('int', 'nasyncplans'),
   ('int', 'first_partial_plan'),
-  ('struct PartitionPruneInfo*', 'part_prune_info'),
 ]
 
 MergeAppend = [
@@ -3231,7 +2960,6 @@ MergeAppend = [
   ('int', 'plan.plan_width'),
   ('bool', 'plan.parallel_aware'),
   ('bool', 'plan.parallel_safe'),
-  ('bool', 'plan.async_capable'),
   ('int', 'plan.plan_node_id'),
   ('List*', 'plan.targetlist'),
   ('List*', 'plan.qual'),
@@ -3240,14 +2968,13 @@ MergeAppend = [
   ('List*', 'plan.initPlan'),
   ('Bitmapset*', 'plan.extParam'),
   ('Bitmapset*', 'plan.allParam'),
-  ('Bitmapset*', 'apprelids'),
+  ('List*', 'partitioned_rels'),
   ('List*', 'mergeplans'),
   ('int', 'numCols'),
   ('AttrNumber[numCols]', 'sortColIdx'),
   ('Oid[numCols]', 'sortOperators'),
   ('Oid[numCols]', 'collations'),
   ('bool[numCols]', 'nullsFirst'),
-  ('struct PartitionPruneInfo*', 'part_prune_info'),
 ]
 
 RecursiveUnion = [
@@ -3257,7 +2984,6 @@ RecursiveUnion = [
   ('int', 'plan.plan_width'),
   ('bool', 'plan.parallel_aware'),
   ('bool', 'plan.parallel_safe'),
-  ('bool', 'plan.async_capable'),
   ('int', 'plan.plan_node_id'),
   ('List*', 'plan.targetlist'),
   ('List*', 'plan.qual'),
@@ -3281,7 +3007,6 @@ BitmapAnd = [
   ('int', 'plan.plan_width'),
   ('bool', 'plan.parallel_aware'),
   ('bool', 'plan.parallel_safe'),
-  ('bool', 'plan.async_capable'),
   ('int', 'plan.plan_node_id'),
   ('List*', 'plan.targetlist'),
   ('List*', 'plan.qual'),
@@ -3300,7 +3025,6 @@ BitmapOr = [
   ('int', 'plan.plan_width'),
   ('bool', 'plan.parallel_aware'),
   ('bool', 'plan.parallel_safe'),
-  ('bool', 'plan.async_capable'),
   ('int', 'plan.plan_node_id'),
   ('List*', 'plan.targetlist'),
   ('List*', 'plan.qual'),
@@ -3320,7 +3044,6 @@ Scan = [
   ('int', 'plan.plan_width'),
   ('bool', 'plan.parallel_aware'),
   ('bool', 'plan.parallel_safe'),
-  ('bool', 'plan.async_capable'),
   ('int', 'plan.plan_node_id'),
   ('List*', 'plan.targetlist'),
   ('List*', 'plan.qual'),
@@ -3339,7 +3062,6 @@ SeqScan = [
   ('int', 'scan.plan.plan_width'),
   ('bool', 'scan.plan.parallel_aware'),
   ('bool', 'scan.plan.parallel_safe'),
-  ('bool', 'scan.plan.async_capable'),
   ('int', 'scan.plan.plan_node_id'),
   ('List*', 'scan.plan.targetlist'),
   ('List*', 'scan.plan.qual'),
@@ -3358,7 +3080,6 @@ SampleScan = [
   ('int', 'scan.plan.plan_width'),
   ('bool', 'scan.plan.parallel_aware'),
   ('bool', 'scan.plan.parallel_safe'),
-  ('bool', 'scan.plan.async_capable'),
   ('int', 'scan.plan.plan_node_id'),
   ('List*', 'scan.plan.targetlist'),
   ('List*', 'scan.plan.qual'),
@@ -3378,7 +3099,6 @@ IndexScan = [
   ('int', 'scan.plan.plan_width'),
   ('bool', 'scan.plan.parallel_aware'),
   ('bool', 'scan.plan.parallel_safe'),
-  ('bool', 'scan.plan.async_capable'),
   ('int', 'scan.plan.plan_node_id'),
   ('List*', 'scan.plan.targetlist'),
   ('List*', 'scan.plan.qual'),
@@ -3404,7 +3124,6 @@ IndexOnlyScan = [
   ('int', 'scan.plan.plan_width'),
   ('bool', 'scan.plan.parallel_aware'),
   ('bool', 'scan.plan.parallel_safe'),
-  ('bool', 'scan.plan.async_capable'),
   ('int', 'scan.plan.plan_node_id'),
   ('List*', 'scan.plan.targetlist'),
   ('List*', 'scan.plan.qual'),
@@ -3429,7 +3148,6 @@ BitmapIndexScan = [
   ('int', 'scan.plan.plan_width'),
   ('bool', 'scan.plan.parallel_aware'),
   ('bool', 'scan.plan.parallel_safe'),
-  ('bool', 'scan.plan.async_capable'),
   ('int', 'scan.plan.plan_node_id'),
   ('List*', 'scan.plan.targetlist'),
   ('List*', 'scan.plan.qual'),
@@ -3452,7 +3170,6 @@ BitmapHeapScan = [
   ('int', 'scan.plan.plan_width'),
   ('bool', 'scan.plan.parallel_aware'),
   ('bool', 'scan.plan.parallel_safe'),
-  ('bool', 'scan.plan.async_capable'),
   ('int', 'scan.plan.plan_node_id'),
   ('List*', 'scan.plan.targetlist'),
   ('List*', 'scan.plan.qual'),
@@ -3472,7 +3189,6 @@ TidScan = [
   ('int', 'scan.plan.plan_width'),
   ('bool', 'scan.plan.parallel_aware'),
   ('bool', 'scan.plan.parallel_safe'),
-  ('bool', 'scan.plan.async_capable'),
   ('int', 'scan.plan.plan_node_id'),
   ('List*', 'scan.plan.targetlist'),
   ('List*', 'scan.plan.qual'),
@@ -3485,26 +3201,6 @@ TidScan = [
   ('List*', 'tidquals'),
 ]
 
-TidRangeScan = [
-  ('Cost', 'scan.plan.startup_cost'),
-  ('Cost', 'scan.plan.total_cost'),
-  ('Cardinality', 'scan.plan.plan_rows'),
-  ('int', 'scan.plan.plan_width'),
-  ('bool', 'scan.plan.parallel_aware'),
-  ('bool', 'scan.plan.parallel_safe'),
-  ('bool', 'scan.plan.async_capable'),
-  ('int', 'scan.plan.plan_node_id'),
-  ('List*', 'scan.plan.targetlist'),
-  ('List*', 'scan.plan.qual'),
-  ('struct Plan*', 'scan.plan.lefttree'),
-  ('struct Plan*', 'scan.plan.righttree'),
-  ('List*', 'scan.plan.initPlan'),
-  ('Bitmapset*', 'scan.plan.extParam'),
-  ('Bitmapset*', 'scan.plan.allParam'),
-  ('Index', 'scan.scanrelid'),
-  ('List*', 'tidrangequals'),
-]
-
 SubqueryScan = [
   ('Cost', 'scan.plan.startup_cost'),
   ('Cost', 'scan.plan.total_cost'),
@@ -3512,7 +3208,6 @@ SubqueryScan = [
   ('int', 'scan.plan.plan_width'),
   ('bool', 'scan.plan.parallel_aware'),
   ('bool', 'scan.plan.parallel_safe'),
-  ('bool', 'scan.plan.async_capable'),
   ('int', 'scan.plan.plan_node_id'),
   ('List*', 'scan.plan.targetlist'),
   ('List*', 'scan.plan.qual'),
@@ -3533,7 +3228,6 @@ FunctionScan = [
   ('int', 'scan.plan.plan_width'),
   ('bool', 'scan.plan.parallel_aware'),
   ('bool', 'scan.plan.parallel_safe'),
-  ('bool', 'scan.plan.async_capable'),
   ('int', 'scan.plan.plan_node_id'),
   ('List*', 'scan.plan.targetlist'),
   ('List*', 'scan.plan.qual'),
@@ -3554,7 +3248,6 @@ ValuesScan = [
   ('int', 'scan.plan.plan_width'),
   ('bool', 'scan.plan.parallel_aware'),
   ('bool', 'scan.plan.parallel_safe'),
-  ('bool', 'scan.plan.async_capable'),
   ('int', 'scan.plan.plan_node_id'),
   ('List*', 'scan.plan.targetlist'),
   ('List*', 'scan.plan.qual'),
@@ -3574,7 +3267,6 @@ TableFuncScan = [
   ('int', 'scan.plan.plan_width'),
   ('bool', 'scan.plan.parallel_aware'),
   ('bool', 'scan.plan.parallel_safe'),
-  ('bool', 'scan.plan.async_capable'),
   ('int', 'scan.plan.plan_node_id'),
   ('List*', 'scan.plan.targetlist'),
   ('List*', 'scan.plan.qual'),
@@ -3594,7 +3286,6 @@ CteScan = [
   ('int', 'scan.plan.plan_width'),
   ('bool', 'scan.plan.parallel_aware'),
   ('bool', 'scan.plan.parallel_safe'),
-  ('bool', 'scan.plan.async_capable'),
   ('int', 'scan.plan.plan_node_id'),
   ('List*', 'scan.plan.targetlist'),
   ('List*', 'scan.plan.qual'),
@@ -3615,7 +3306,6 @@ NamedTuplestoreScan = [
   ('int', 'scan.plan.plan_width'),
   ('bool', 'scan.plan.parallel_aware'),
   ('bool', 'scan.plan.parallel_safe'),
-  ('bool', 'scan.plan.async_capable'),
   ('int', 'scan.plan.plan_node_id'),
   ('List*', 'scan.plan.targetlist'),
   ('List*', 'scan.plan.qual'),
@@ -3635,7 +3325,6 @@ WorkTableScan = [
   ('int', 'scan.plan.plan_width'),
   ('bool', 'scan.plan.parallel_aware'),
   ('bool', 'scan.plan.parallel_safe'),
-  ('bool', 'scan.plan.async_capable'),
   ('int', 'scan.plan.plan_node_id'),
   ('List*', 'scan.plan.targetlist'),
   ('List*', 'scan.plan.qual'),
@@ -3655,7 +3344,6 @@ ForeignScan = [
   ('int', 'scan.plan.plan_width'),
   ('bool', 'scan.plan.parallel_aware'),
   ('bool', 'scan.plan.parallel_safe'),
-  ('bool', 'scan.plan.async_capable'),
   ('int', 'scan.plan.plan_node_id'),
   ('List*', 'scan.plan.targetlist'),
   ('List*', 'scan.plan.qual'),
@@ -3685,7 +3373,6 @@ CustomScan = [
   ('int', 'scan.plan.plan_width'),
   ('bool', 'scan.plan.parallel_aware'),
   ('bool', 'scan.plan.parallel_safe'),
-  ('bool', 'scan.plan.async_capable'),
   ('int', 'scan.plan.plan_node_id'),
   ('List*', 'scan.plan.targetlist'),
   ('List*', 'scan.plan.qual'),
@@ -3711,7 +3398,6 @@ Join = [
   ('int', 'plan.plan_width'),
   ('bool', 'plan.parallel_aware'),
   ('bool', 'plan.parallel_safe'),
-  ('bool', 'plan.async_capable'),
   ('int', 'plan.plan_node_id'),
   ('List*', 'plan.targetlist'),
   ('List*', 'plan.qual'),
@@ -3732,7 +3418,6 @@ NestLoop = [
   ('int', 'join.plan.plan_width'),
   ('bool', 'join.plan.parallel_aware'),
   ('bool', 'join.plan.parallel_safe'),
-  ('bool', 'join.plan.async_capable'),
   ('int', 'join.plan.plan_node_id'),
   ('List*', 'join.plan.targetlist'),
   ('List*', 'join.plan.qual'),
@@ -3759,7 +3444,6 @@ MergeJoin = [
   ('int', 'join.plan.plan_width'),
   ('bool', 'join.plan.parallel_aware'),
   ('bool', 'join.plan.parallel_safe'),
-  ('bool', 'join.plan.async_capable'),
   ('int', 'join.plan.plan_node_id'),
   ('List*', 'join.plan.targetlist'),
   ('List*', 'join.plan.qual'),
@@ -3786,7 +3470,6 @@ HashJoin = [
   ('int', 'join.plan.plan_width'),
   ('bool', 'join.plan.parallel_aware'),
   ('bool', 'join.plan.parallel_safe'),
-  ('bool', 'join.plan.async_capable'),
   ('int', 'join.plan.plan_node_id'),
   ('List*', 'join.plan.targetlist'),
   ('List*', 'join.plan.qual'),
@@ -3799,9 +3482,6 @@ HashJoin = [
   ('bool', 'join.inner_unique'),
   ('List*', 'join.joinqual'),
   ('List*', 'hashclauses'),
-  ('List*', 'hashoperators'),
-  ('List*', 'hashcollations'),
-  ('List*', 'hashkeys'),
 ]
 
 Material = [
@@ -3811,7 +3491,6 @@ Material = [
   ('int', 'plan.plan_width'),
   ('bool', 'plan.parallel_aware'),
   ('bool', 'plan.parallel_safe'),
-  ('bool', 'plan.async_capable'),
   ('int', 'plan.plan_node_id'),
   ('List*', 'plan.targetlist'),
   ('List*', 'plan.qual'),
@@ -3822,31 +3501,7 @@ Material = [
   ('Bitmapset*', 'plan.allParam'),
 ]
 
-Memoize = [
-  ('Cost', 'plan.startup_cost'),
-  ('Cost', 'plan.total_cost'),
-  ('Cardinality', 'plan.plan_rows'),
-  ('int', 'plan.plan_width'),
-  ('bool', 'plan.parallel_aware'),
-  ('bool', 'plan.parallel_safe'),
-  ('bool', 'plan.async_capable'),
-  ('int', 'plan.plan_node_id'),
-  ('List*', 'plan.targetlist'),
-  ('List*', 'plan.qual'),
-  ('struct Plan*', 'plan.lefttree'),
-  ('struct Plan*', 'plan.righttree'),
-  ('List*', 'plan.initPlan'),
-  ('Bitmapset*', 'plan.extParam'),
-  ('Bitmapset*', 'plan.allParam'),
-  ('int', 'numKeys'),
-  ('Oid[numKeys]', 'hashOperators'),
-  ('Oid[numKeys]', 'collations'),
-  ('List*', 'param_exprs'),
-  ('bool', 'singlerow'),
-  ('bool', 'binary_mode'),
-  ('uint32', 'est_entries'),
-  ('Bitmapset*', 'keyparamids'),
-]
+
 
 Sort = [
   ('Cost', 'plan.startup_cost'),
@@ -3855,7 +3510,6 @@ Sort = [
   ('int', 'plan.plan_width'),
   ('bool', 'plan.parallel_aware'),
   ('bool', 'plan.parallel_safe'),
-  ('bool', 'plan.async_capable'),
   ('int', 'plan.plan_node_id'),
   ('List*', 'plan.targetlist'),
   ('List*', 'plan.qual'),
@@ -3871,30 +3525,6 @@ Sort = [
   ('bool[numCols]', 'nullsFirst'),
 ]
 
-IncrementalSort = [
-  ('Cost', 'sort.plan.startup_cost'),
-  ('Cost', 'sort.plan.total_cost'),
-  ('Cardinality', 'sort.plan.plan_rows'),
-  ('int', 'sort.plan.plan_width'),
-  ('bool', 'sort.plan.parallel_aware'),
-  ('bool', 'sort.plan.parallel_safe'),
-  ('bool', 'sort.plan.async_capable'),
-  ('int', 'sort.plan.plan_node_id'),
-  ('List*', 'sort.plan.targetlist'),
-  ('List*', 'sort.plan.qual'),
-  ('struct Plan*', 'sort.plan.lefttree'),
-  ('struct Plan*', 'sort.plan.righttree'),
-  ('List*', 'sort.plan.initPlan'),
-  ('Bitmapset*', 'sort.plan.extParam'),
-  ('Bitmapset*', 'sort.plan.allParam'),
-  ('int', 'sort.numCols'),
-  ('AttrNumber[sort.numCols]', 'sort.sortColIdx'),
-  ('Oid[sort.numCols]', 'sort.sortOperators'),
-  ('Oid[sort.numCols]', 'sort.collations'),
-  ('bool[sort.numCols]', 'sort.nullsFirst'),
-  ('int', 'nPresortedCols'),
-]
-
 Group = [
   ('Cost', 'plan.startup_cost'),
   ('Cost', 'plan.total_cost'),
@@ -3902,7 +3532,6 @@ Group = [
   ('int', 'plan.plan_width'),
   ('bool', 'plan.parallel_aware'),
   ('bool', 'plan.parallel_safe'),
-  ('bool', 'plan.async_capable'),
   ('int', 'plan.plan_node_id'),
   ('List*', 'plan.targetlist'),
   ('List*', 'plan.qual'),
@@ -3914,7 +3543,6 @@ Group = [
   ('int', 'numCols'),
   ('AttrNumber[numCols]', 'grpColIdx'),
   ('Oid[numCols]', 'grpOperators'),
-  ('Oid[numCols]', 'grpCollations'),
 ]
 
 Agg = [
@@ -3924,7 +3552,6 @@ Agg = [
   ('int', 'plan.plan_width'),
   ('bool', 'plan.parallel_aware'),
   ('bool', 'plan.parallel_safe'),
-  ('bool', 'plan.async_capable'),
   ('int', 'plan.plan_node_id'),
   ('List*', 'plan.targetlist'),
   ('List*', 'plan.qual'),
@@ -3938,12 +3565,13 @@ Agg = [
   ('int', 'numCols'),
   ('AttrNumber[numCols]', 'grpColIdx'),
   ('Oid[numCols]', 'grpOperators'),
-  ('Oid[numCols]', 'grpCollations'),
   ('long', 'numGroups'),
-  ('uint64', 'transitionSpace'),
   ('Bitmapset*', 'aggParams'),
   ('List*', 'groupingSets'),
   ('List*', 'chain'),
+  ('uint32', 'entrySize'),
+  ('bool', 'hybrid'),
+  ('bool', 'noDistinct'),
 ]
 
 WindowAgg = [
@@ -3953,7 +3581,6 @@ WindowAgg = [
   ('int', 'plan.plan_width'),
   ('bool', 'plan.parallel_aware'),
   ('bool', 'plan.parallel_safe'),
-  ('bool', 'plan.async_capable'),
   ('int', 'plan.plan_node_id'),
   ('List*', 'plan.targetlist'),
   ('List*', 'plan.qual'),
@@ -3991,7 +3618,6 @@ Unique = [
   ('int', 'plan.plan_width'),
   ('bool', 'plan.parallel_aware'),
   ('bool', 'plan.parallel_safe'),
-  ('bool', 'plan.async_capable'),
   ('int', 'plan.plan_node_id'),
   ('List*', 'plan.targetlist'),
   ('List*', 'plan.qual'),
@@ -4013,7 +3639,6 @@ Gather = [
   ('int', 'plan.plan_width'),
   ('bool', 'plan.parallel_aware'),
   ('bool', 'plan.parallel_safe'),
-  ('bool', 'plan.async_capable'),
   ('int', 'plan.plan_node_id'),
   ('List*', 'plan.targetlist'),
   ('List*', 'plan.qual'),
@@ -4036,7 +3661,6 @@ GatherMerge = [
   ('int', 'plan.plan_width'),
   ('bool', 'plan.parallel_aware'),
   ('bool', 'plan.parallel_safe'),
-  ('bool', 'plan.async_capable'),
   ('int', 'plan.plan_node_id'),
   ('List*', 'plan.targetlist'),
   ('List*', 'plan.qual'),
@@ -4062,7 +3686,6 @@ Hash = [
   ('int', 'plan.plan_width'),
   ('bool', 'plan.parallel_aware'),
   ('bool', 'plan.parallel_safe'),
-  ('bool', 'plan.async_capable'),
   ('int', 'plan.plan_node_id'),
   ('List*', 'plan.targetlist'),
   ('List*', 'plan.qual'),
@@ -4071,11 +3694,9 @@ Hash = [
   ('List*', 'plan.initPlan'),
   ('Bitmapset*', 'plan.extParam'),
   ('Bitmapset*', 'plan.allParam'),
-  ('List*', 'hashkeys'),
   ('Oid', 'skewTable'),
   ('AttrNumber', 'skewColumn'),
   ('bool', 'skewInherit'),
-  ('Cardinality', 'rows_total'),
 ]
 
 SetOp = [
@@ -4085,7 +3706,6 @@ SetOp = [
   ('int', 'plan.plan_width'),
   ('bool', 'plan.parallel_aware'),
   ('bool', 'plan.parallel_safe'),
-  ('bool', 'plan.async_capable'),
   ('int', 'plan.plan_node_id'),
   ('List*', 'plan.targetlist'),
   ('List*', 'plan.qual'),
@@ -4112,7 +3732,6 @@ LockRows = [
   ('int', 'plan.plan_width'),
   ('bool', 'plan.parallel_aware'),
   ('bool', 'plan.parallel_safe'),
-  ('bool', 'plan.async_capable'),
   ('int', 'plan.plan_node_id'),
   ('List*', 'plan.targetlist'),
   ('List*', 'plan.qual'),
@@ -4132,7 +3751,6 @@ Limit = [
   ('int', 'plan.plan_width'),
   ('bool', 'plan.parallel_aware'),
   ('bool', 'plan.parallel_safe'),
-  ('bool', 'plan.async_capable'),
   ('int', 'plan.plan_node_id'),
   ('List*', 'plan.targetlist'),
   ('List*', 'plan.qual'),
@@ -4143,11 +3761,7 @@ Limit = [
   ('Bitmapset*', 'plan.allParam'),
   ('Node*', 'limitOffset'),
   ('Node*', 'limitCount'),
-  ('LimitOption', 'limitOption'),
-  ('int', 'uniqNumCols'),
-  ('AttrNumber[uniqNumCols]', 'uniqColIdx'),
-  ('Oid[uniqNumCols]', 'uniqOperators'),
-  ('Oid[uniqNumCols]', 'uniqCollations'),
+  ('bool', 'skipEarlyFinish'),
 ]
 
 PlanRowMark = [
@@ -4159,23 +3773,6 @@ PlanRowMark = [
   ('LockClauseStrength', 'strength'),
   ('LockWaitPolicy', 'waitPolicy'),
   ('bool', 'isParent'),
-]
-
-PartitionPruneInfo = [
-  ('List*', 'prune_infos'),
-  ('Bitmapset*', 'other_subplans'),
-]
-
-PartitionedRelPruneInfo = [
-  ('Index', 'rtindex'),
-  ('Bitmapset*', 'present_parts'),
-  ('int', 'nparts'),
-  ('int[nparts]', 'subplan_map'),
-  ('int[nparts]', 'subpart_map'),
-  ('Oid[nparts]', 'relid_map'),
-  ('List*', 'initial_pruning_steps'),
-  ('List*', 'exec_pruning_steps'),
-  ('Bitmapset*', 'execparamids'),
 ]
 
 PartitionPruneStep = [
@@ -4213,4 +3810,140 @@ ForeignKeyCacheInfo = [
   ('AttrNumber[nkeys]', 'conkey'),
   ('AttrNumber[nkeys]', 'confkey'),
   ('Oid[nkeys]', 'conpfeqop'),
+]
+
+SimpleSort = [
+  ('int', 'numCols'),
+  ('AttrNumber[numCols]', 'sortColIdx'),
+  ('Oid[numCols]', 'sortOperators'),
+  ('Oid[numCols]', 'sortCollations'),
+  ('bool[numCols]', 'nullsFirst'),
+]
+
+RemoteQuery = [
+  ('Cost', 'scan.plan.startup_cost'),
+  ('Cost', 'scan.plan.total_cost'),
+  ('Cardinality', 'scan.plan.plan_rows'),
+  ('int', 'scan.plan.plan_width'),
+  ('bool', 'scan.plan.parallel_aware'),
+  ('bool', 'scan.plan.parallel_safe'),
+  ('int', 'scan.plan.plan_node_id'),
+  ('List*', 'scan.plan.targetlist'),
+  ('List*', 'scan.plan.qual'),
+  ('struct Plan*', 'scan.plan.lefttree'),
+  ('struct Plan*', 'scan.plan.righttree'),
+  ('List*', 'scan.plan.initPlan'),
+  ('Bitmapset*', 'scan.plan.extParam'),
+  ('Bitmapset*', 'scan.plan.allParam'),
+  ('Index', 'scan.scanrelid'),
+  ('ExecDirectType', 'exec_direct_type'),
+  ('char*', 'sql_statement'),
+  ('ExecNodes*', 'exec_nodes'),
+  ('CombineType', 'combine_type'),
+  ('SimpleSort*', 'sort'),
+  ('bool', 'read_only'),
+  ('bool', 'force_autocommit'),
+  ('char*', 'statement'),
+  ('char*', 'cursor'),
+  ('int', 'rq_num_params'),
+  ('Oid*', 'rq_param_types'),
+  ('RemoteQueryExecType', 'exec_type'),
+  ('int', 'reduce_level'),
+  ('char*', 'outer_alias'),
+  ('char*', 'inner_alias'),
+  ('int', 'outer_reduce_level'),
+  ('int', 'inner_reduce_level'),
+  ('Relids', 'outer_relids'),
+  ('Relids', 'inner_relids'),
+  ('char*', 'inner_statement'),
+  ('char*', 'outer_statement'),
+  ('char*', 'join_condition'),
+  ('bool', 'has_row_marks'),
+  ('bool', 'has_ins_child_sel_parent'),
+  ('bool', 'rq_finalise_aggs'),
+  ('bool', 'rq_sortgroup_colno'),
+  ('Query*', 'remote_query'),
+  ('List*', 'base_tlist'),
+  ('List*', 'coord_var_tlist'),
+  ('List*', 'query_var_tlist'),
+  ('bool', 'is_temp'),
+  ('Query*', 'forDeparse'),
+  ('char*', 'sql_select'),
+  ('char*', 'sql_select_base'),
+  ('bool', 'forUpadte'),
+  ('int', 'ss_num_params'),
+  ('Oid*', 'ss_param_types'),
+  ('char*', 'select_cursor'),
+  ('char*', 'sql_update'),
+  ('int', 'su_num_params'),
+  ('Oid*', 'su_param_types'),
+  ('char*', 'update_cursor'),
+  ('UPSERT_ACTION', 'action'),
+  ('bool', 'dml_on_coordinator'),
+  ('AttrNumber', 'jf_ctid'),
+  ('AttrNumber', 'jf_xc_node_id'),
+  ('AttrNumber', 'jf_xc_wholerow'),
+  ('Bitmapset*', 'conflict_cols'),
+  ('Node*', 'parsetree'),
+  ('bool', 'is_set'),
+  ('bool', 'ignore_tuple_desc'),
+]
+
+RemoteSubplan = [
+  ('Cost', 'scan.plan.startup_cost'),
+  ('Cost', 'scan.plan.total_cost'),
+  ('Cardinality', 'scan.plan.plan_rows'),
+  ('int', 'scan.plan.plan_width'),
+  ('bool', 'scan.plan.parallel_aware'),
+  ('bool', 'scan.plan.parallel_safe'),
+  ('int', 'scan.plan.plan_node_id'),
+  ('List*', 'scan.plan.targetlist'),
+  ('List*', 'scan.plan.qual'),
+  ('struct Plan*', 'scan.plan.lefttree'),
+  ('struct Plan*', 'scan.plan.righttree'),
+  ('List*', 'scan.plan.initPlan'),
+  ('Bitmapset*', 'scan.plan.extParam'),
+  ('Bitmapset*', 'scan.plan.allParam'),
+  ('Index', 'scan.scanrelid'),
+  ('char', 'distributionType'),
+  ('AttrNumber', 'distributionKey'),
+  ('List*', 'distributionNodes'),
+  ('List*', 'distributionRestrict'),
+  ('List*', 'nodeList'),
+  ('bool', 'execOnAll'),
+  ('SimpleSort*', 'sort'),
+  ('char*', 'cursor'),
+  ('int64', 'unique'),
+  ('bool', 'parallelWorkerSendTuple'),
+  ('Bitmapset*', 'initPlanParams'),
+]
+
+RemoteParam = [
+  ('ParamKind', 'paramkind'),
+  ('int', 'paramid'),
+  ('Oid', 'paramtype'),
+  ('int', 'paramused'),
+]
+
+Distribution = [
+  ('char', 'distributionType'),
+  ('Node*', 'distributionExpr'),
+  ('Bitmapset*', 'nodes'),
+  ('Bitmapset*', 'restrictNodes'),
+]
+
+RemoteSubPath = [
+  ('NodeTag', 'path.pathtype'),
+  ('RelOptInfo*', 'path.parent'),
+  ('PathTarget*', 'path.pathtarget'),
+  ('ParamPathInfo*', 'path.param_info'),
+  ('bool', 'path.parallel_aware'),
+  ('bool', 'path.parallel_safe'),
+  ('int', 'path.parallel_workers'),
+  ('Cardinality', 'path.rows'),
+  ('Cost', 'path.startup_cost'),
+  ('Cost', 'path.total_cost'),
+  ('List*', 'path.pathkeys'),
+  ('Distribution*', 'path.distribution'),
+  ('Path*', 'subpath'),
 ]

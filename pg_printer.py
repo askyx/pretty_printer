@@ -10,7 +10,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from node_struct import *
 
-printer = gdb.printing.RegexpCollectionPrettyPrinter('REL_16_STABLE')
+printer = gdb.printing.RegexpCollectionPrettyPrinter('v2.5.0-release_new')
 
 def register_printer(name):
     def __registe(_printer):
@@ -89,6 +89,8 @@ class BasePrinter:
                 s = '%s: %s' % (arg[1], '0x0'if str(self.get_item(arg[1])) == '0x0' else self.get_item(arg[1]).dereference())
             elif arg[0] == 'Selectivity':
                 s = '{}: {:.4f}'.format(arg[1], float(self.get_item(arg[1])))
+            elif arg[0] == 'bool':
+                s = '{}: {}'.format(arg[1], bool(self.get_item(arg[1])))
             else:
                 s = '{}: {}'.format(arg[1], getchars(self.get_item(arg[1])) if arg[0] == 'char*' else self.get_item(arg[1]))
             ss.append(s)
@@ -137,12 +139,11 @@ class BasePrinter:
         return list
 
     def plan_to_string(self, plan):
-        return '(cost={:.2f}..{:.2f} rows={:.0f} width={:.0f} async_capable={} plan_id={} parallel_aware={} parallel_safe = {})'.format(
+        return '(cost={:.2f}..{:.2f} rows={:.0f} width={:.0f} plan_id={} parallel_aware={} parallel_safe = {})'.format(
             float(plan['startup_cost']),
             float(plan['total_cost']),
             float(plan['plan_rows']),
             float(plan['plan_width']),
-            int(plan['async_capable']),
             int(plan['plan_node_id']),
             bool(plan['parallel_aware']),
             bool(plan['parallel_safe'])
@@ -186,7 +187,7 @@ def bms_next_member(val, prevbit, bit_per_w):
 @register_printer('Bitmapset')
 class BitmapsetPrinter(BasePrinter):
     def to_string(self):
-        return getchars(gdb.parse_and_eval('nodeToString({})'.format(self.val.reference_value().address)), False)
+        return getchars(gdb.parse_and_eval('bmsToString({})'.format(self.val.reference_value().address)), False)
         # do it by yourself, flowing code is not work, it may cause 'maximum recursion depth exceeded in comparison' error
         # why? anything wrong with my code?
         # if we want run this to debug a core file, must resolve this issue first.
@@ -202,28 +203,25 @@ class BitmapsetPrinter(BasePrinter):
 @register_printer('Relids')
 class RelidsPrinter(BasePrinter):
     def to_string(self):
-        return getchars(gdb.parse_and_eval('nodeToString({})'.format(self.val.referenced_value().address)), False)
+        return getchars(gdb.parse_and_eval('bmsToString({})'.format(self.val.referenced_value().address)), False)
 
 pl = {
     'Alias': Alias,                         'RangeVar': RangeVar,               'TableFunc': TableFunc,             'IntoClause': IntoClause,
     'Var': Var,                             'Const': Const,                     'Param': Param,                     'Aggref': Aggref,
-    'GroupingFunc': GroupingFunc,           'WindowFunc': WindowFunc,           'SubscriptingRef': SubscriptingRef, 'FuncExpr': FuncExpr,
+    'GroupingFunc': GroupingFunc,           'WindowFunc': WindowFunc,          'FuncExpr': FuncExpr,
     'NamedArgExpr': NamedArgExpr,           'OpExpr': OpExpr,                   'DistinctExpr': DistinctExpr,       'NullIfExpr': NullIfExpr,
     'FieldStore': FieldStore,               'RelabelType': RelabelType,         'CoerceViaIO': CoerceViaIO,         'ArrayCoerceExpr': ArrayCoerceExpr,
     'CaseWhen': CaseWhen,                   'CaseTestExpr': CaseTestExpr,       'ArrayExpr': ArrayExpr,             'RowExpr': RowExpr,
     'RowCompareExpr': RowCompareExpr,       'CoalesceExpr': CoalesceExpr,       'MinMaxExpr': MinMaxExpr,           'SubLink': SubLink,
-    'SQLValueFunction': SQLValueFunction,   'XmlExpr': XmlExpr,                 'JsonFormat': JsonFormat,           'JsonReturning': JsonReturning,                                     'JsonValueExpr': JsonValueExpr,
+    'SQLValueFunction': SQLValueFunction,   'XmlExpr': XmlExpr,                
     'ScalarArrayOpExpr': ScalarArrayOpExpr,                     'BoolExpr': BoolExpr,                   
     'ConvertRowtypeExpr': ConvertRowtypeExpr,                   'CollateExpr': CollateExpr,             'CaseExpr': CaseExpr,
-    'JsonConstructorExpr': JsonConstructorExpr,
-    'JsonIsPredicate': JsonIsPredicate,    'NullTest': NullTest,    'BooleanTest': BooleanTest,
+    'NullTest': NullTest,    'BooleanTest': BooleanTest,
     'SubPlan': SubPlan,             'AlternativeSubPlan': AlternativeSubPlan,                       'FieldSelect': FieldSelect,
     'CoerceToDomain': CoerceToDomain,    'CoerceToDomainValue': CoerceToDomainValue,    'SetToDefault': SetToDefault,
     'CurrentOfExpr': CurrentOfExpr,    'NextValueExpr': NextValueExpr,    'InferenceElem': InferenceElem,    'TargetEntry': TargetEntry,
-    'RangeTblRef': RangeTblRef,    'JoinExpr': JoinExpr,    'FromExpr': FromExpr,
-    'OnConflictExpr': OnConflictExpr,
-    'Query': Query,    'TypeName': TypeName,    'ColumnRef': ColumnRef,
-    'ParamRef': ParamRef,    'A_Expr': A_Expr,    'A_Const': A_Const,
+    'RangeTblRef': RangeTblRef,    'JoinExpr': JoinExpr,    'FromExpr': FromExpr,    'OnConflictExpr': OnConflictExpr,
+    'Query': Query,    'TypeName': TypeName,    'ColumnRef': ColumnRef,    'ParamRef': ParamRef,    'A_Expr': A_Expr,    'A_Const': A_Const,
     'TypeCast': TypeCast,    'CollateClause': CollateClause,    'RoleSpec': RoleSpec,    'FuncCall': FuncCall,   
     'A_Indices': A_Indices,    'A_Indirection': A_Indirection,    'A_ArrayExpr': A_ArrayExpr,
     'ResTarget': ResTarget,    'MultiAssignRef': MultiAssignRef,    'SortBy': SortBy,    'WindowDef': WindowDef,
@@ -232,19 +230,13 @@ pl = {
     'IndexElem': IndexElem,    'DefElem': DefElem,    'LockingClause': LockingClause,
     'XmlSerialize': XmlSerialize,    'PartitionElem': PartitionElem,    'PartitionSpec': PartitionSpec,
     'PartitionBoundSpec': PartitionBoundSpec,    'PartitionRangeDatum': PartitionRangeDatum,
-    'PartitionCmd': PartitionCmd,    'RangeTblEntry': RangeTblEntry,    'RTEPermissionInfo': RTEPermissionInfo,
+    'PartitionCmd': PartitionCmd,    'RangeTblEntry': RangeTblEntry,   
     'RangeTblFunction': RangeTblFunction,    'TableSampleClause': TableSampleClause,    'WithCheckOption': WithCheckOption,
-    'SortGroupClause': SortGroupClause,
-    'GroupingSet': GroupingSet,    'WindowClause': WindowClause,    'RowMarkClause': RowMarkClause,
+    'SortGroupClause': SortGroupClause,    'GroupingSet': GroupingSet,    'WindowClause': WindowClause,    'RowMarkClause': RowMarkClause,
     'WithClause': WithClause,    'InferClause': InferClause,    'OnConflictClause': OnConflictClause,
-    'CTESearchClause': CTESearchClause,    'CTECycleClause': CTECycleClause,    'CommonTableExpr': CommonTableExpr,
-    'MergeWhenClause': MergeWhenClause,    'MergeAction': MergeAction,    'TriggerTransition': TriggerTransition,
-    'JsonOutput': JsonOutput,    'JsonKeyValue': JsonKeyValue,    'JsonObjectConstructor': JsonObjectConstructor,
-    'JsonArrayConstructor': JsonArrayConstructor,    'JsonArrayQueryConstructor': JsonArrayQueryConstructor,    'JsonAggConstructor': JsonAggConstructor,
-    'JsonObjectAgg': JsonObjectAgg,    'JsonArrayAgg': JsonArrayAgg,    'RawStmt': RawStmt,
+    'CommonTableExpr': CommonTableExpr,    'TriggerTransition': TriggerTransition,    'RawStmt': RawStmt,
     'InsertStmt': InsertStmt,    'DeleteStmt': DeleteStmt,    'UpdateStmt': UpdateStmt,
-    'MergeStmt': MergeStmt,    'SelectStmt': SelectStmt,    'SetOperationStmt': SetOperationStmt,
-    'ReturnStmt': ReturnStmt,    'PLAssignStmt': PLAssignStmt,    'CreateSchemaStmt': CreateSchemaStmt,
+    'SelectStmt': SelectStmt,    'SetOperationStmt': SetOperationStmt,    'CreateSchemaStmt': CreateSchemaStmt,
     'AlterTableStmt': AlterTableStmt,    'ReplicaIdentityStmt': ReplicaIdentityStmt,    'AlterTableCmd': AlterTableCmd,
     'AlterCollationStmt': AlterCollationStmt,    'AlterDomainStmt': AlterDomainStmt,    'GrantStmt': GrantStmt,
     'ObjectWithArgs': ObjectWithArgs,    'AccessPriv': AccessPriv,    'GrantRoleStmt': GrantRoleStmt,
@@ -264,43 +256,39 @@ pl = {
     'CreateOpFamilyStmt': CreateOpFamilyStmt,    'AlterOpFamilyStmt': AlterOpFamilyStmt,    'DropStmt': DropStmt,
     'TruncateStmt': TruncateStmt,    'CommentStmt': CommentStmt,    'SecLabelStmt': SecLabelStmt,
     'DeclareCursorStmt': DeclareCursorStmt,    'ClosePortalStmt': ClosePortalStmt,    'FetchStmt': FetchStmt,
-    'IndexStmt': IndexStmt,    'CreateStatsStmt': CreateStatsStmt,    'StatsElem': StatsElem,
-    'AlterStatsStmt': AlterStatsStmt,    'CreateFunctionStmt': CreateFunctionStmt,    'FunctionParameter': FunctionParameter,
-    'AlterFunctionStmt': AlterFunctionStmt,    'DoStmt': DoStmt,    'CallStmt': CallStmt,
+    'IndexStmt': IndexStmt,    'CreateStatsStmt': CreateStatsStmt,   'AlterFunctionStmt': AlterFunctionStmt,    'DoStmt': DoStmt,  
+    'CreateFunctionStmt': CreateFunctionStmt,    'FunctionParameter': FunctionParameter,
     'RenameStmt': RenameStmt,    'AlterObjectDependsStmt': AlterObjectDependsStmt,    'AlterObjectSchemaStmt': AlterObjectSchemaStmt,
-    'AlterOwnerStmt': AlterOwnerStmt,    'AlterOperatorStmt': AlterOperatorStmt,    'AlterTypeStmt': AlterTypeStmt,
+    'AlterOwnerStmt': AlterOwnerStmt,    'AlterOperatorStmt': AlterOperatorStmt,   
     'RuleStmt': RuleStmt,    'NotifyStmt': NotifyStmt,    'ListenStmt': ListenStmt,
     'UnlistenStmt': UnlistenStmt,    'TransactionStmt': TransactionStmt,    'CompositeTypeStmt': CompositeTypeStmt,
     'CreateEnumStmt': CreateEnumStmt,    'CreateRangeStmt': CreateRangeStmt,    'AlterEnumStmt': AlterEnumStmt,
     'ViewStmt': ViewStmt,    'LoadStmt': LoadStmt,    'CreatedbStmt': CreatedbStmt,
-    'AlterDatabaseStmt': AlterDatabaseStmt,    'AlterDatabaseRefreshCollStmt': AlterDatabaseRefreshCollStmt,    'AlterDatabaseSetStmt': AlterDatabaseSetStmt,
+    'AlterDatabaseStmt': AlterDatabaseStmt,      'AlterDatabaseSetStmt': AlterDatabaseSetStmt,
     'DropdbStmt': DropdbStmt,    'AlterSystemStmt': AlterSystemStmt,    'ClusterStmt': ClusterStmt,
-    'VacuumStmt': VacuumStmt,
-    'VacuumRelation': VacuumRelation,    'ExplainStmt': ExplainStmt,    'CreateTableAsStmt': CreateTableAsStmt,
+    'VacuumStmt': VacuumStmt,    'ExplainStmt': ExplainStmt,    'CreateTableAsStmt': CreateTableAsStmt,
     'RefreshMatViewStmt': RefreshMatViewStmt,     'DiscardStmt': DiscardStmt,
     'LockStmt': LockStmt,    'ConstraintsSetStmt': ConstraintsSetStmt,    'ReindexStmt': ReindexStmt,
     'CreateConversionStmt': CreateConversionStmt,    'CreateCastStmt': CreateCastStmt,    'CreateTransformStmt': CreateTransformStmt,
     'PrepareStmt': PrepareStmt,    'ExecuteStmt': ExecuteStmt,    'DeallocateStmt': DeallocateStmt,
     'DropOwnedStmt': DropOwnedStmt,    'ReassignOwnedStmt': ReassignOwnedStmt,    'AlterTSDictionaryStmt': AlterTSDictionaryStmt,
-    'AlterTSConfigurationStmt': AlterTSConfigurationStmt,    'PublicationTable': PublicationTable,    'PublicationObjSpec': PublicationObjSpec,
+    'AlterTSConfigurationStmt': AlterTSConfigurationStmt,  
     'CreatePublicationStmt': CreatePublicationStmt,    'AlterPublicationStmt': AlterPublicationStmt,    'CreateSubscriptionStmt': CreateSubscriptionStmt,
     'AlterSubscriptionStmt': AlterSubscriptionStmt,    'DropSubscriptionStmt': DropSubscriptionStmt,    'PlannerGlobal': PlannerGlobal,
     'PlannerInfo': PlannerInfo,    'RelOptInfo': RelOptInfo,
-    'ForeignKeyOptInfo': ForeignKeyOptInfo,    'StatisticExtInfo': StatisticExtInfo,    'JoinDomain': JoinDomain,
+    'ForeignKeyOptInfo': ForeignKeyOptInfo,    'StatisticExtInfo': StatisticExtInfo,   
     'EquivalenceClass': EquivalenceClass,    'EquivalenceMember': EquivalenceMember,    'PathKey': PathKey,    'PathTarget': PathTarget,    'ParamPathInfo': ParamPathInfo,
     'RestrictInfo': RestrictInfo,    'PlaceHolderVar': PlaceHolderVar,    'SpecialJoinInfo': SpecialJoinInfo,
-    'OuterJoinClauseInfo': OuterJoinClauseInfo,    'AppendRelInfo': AppendRelInfo,    'RowIdentityVarInfo': RowIdentityVarInfo,
-    'PlaceHolderInfo': PlaceHolderInfo,    'MinMaxAggInfo': MinMaxAggInfo,    'NestLoopParam': NestLoopParam,
-    'PlannerParamItem': PlannerParamItem,    'AggInfo': AggInfo,    'AggTransInfo': AggTransInfo,
-    'PlannedStmt': PlannedStmt,    'PlanRowMark': PlanRowMark,    'PartitionPruneInfo': PartitionPruneInfo,
-    'PartitionedRelPruneInfo': PartitionedRelPruneInfo,    'PartitionPruneStep': PartitionPruneStep,    'PartitionPruneStepOp': PartitionPruneStepOp,
+    'AppendRelInfo': AppendRelInfo,        'PlaceHolderInfo': PlaceHolderInfo,    'MinMaxAggInfo': MinMaxAggInfo,    'NestLoopParam': NestLoopParam,
+    'PlannerParamItem': PlannerParamItem,        'PlannedStmt': PlannedStmt,    'PlanRowMark': PlanRowMark,  
+    'PartitionPruneStep': PartitionPruneStep,    'PartitionPruneStepOp': PartitionPruneStepOp,
     'PartitionPruneStepCombine': PartitionPruneStepCombine,    'PlanInvalItem': PlanInvalItem,    'ExtensibleNode': ExtensibleNode,
     'ForeignKeyCacheInfo': ForeignKeyCacheInfo, 'IndexOptInfo': IndexOptInfo,
 
     # path
     'Path': Path,    'IndexPath': IndexPath,    'BitmapHeapPath': BitmapHeapPath,    'BitmapAndPath': BitmapAndPath,    'BitmapOrPath': BitmapOrPath,
     'TidPath': TidPath,    'SubqueryScanPath': SubqueryScanPath,    'ForeignPath': ForeignPath,    'CustomPath': CustomPath,
-    'AppendPath': AppendPath,    'MergeAppendPath': MergeAppendPath,    'GroupResultPath': GroupResultPath,    'MaterialPath': MaterialPath,
+    'AppendPath': AppendPath,    'MergeAppendPath': MergeAppendPath,      'MaterialPath': MaterialPath,
     'UniquePath': UniquePath,    'GatherPath': GatherPath,    'GatherMergePath': GatherMergePath,    'ProjectionPath': ProjectionPath,
     'ProjectSetPath': ProjectSetPath,    'SortPath': SortPath,    'GroupPath': GroupPath,    'UpperUniquePath': UpperUniquePath,
     'AggPath': AggPath,    'GroupingSetsPath': GroupingSetsPath,    'MinMaxAggPath': MinMaxAggPath,    'WindowAggPath': WindowAggPath,
@@ -311,12 +299,16 @@ pl = {
     'Plan': Plan,    'Result': Result,    'ProjectSet': ProjectSet,    'ModifyTable': ModifyTable,    'Append': Append,    'MergeAppend': MergeAppend,
     'RecursiveUnion': RecursiveUnion,    'BitmapAnd': BitmapAnd,    'BitmapOr': BitmapOr,    'Scan': Scan,    'SeqScan': SeqScan,    'SampleScan': SampleScan,
     'IndexScan': IndexScan,    'IndexOnlyScan': IndexOnlyScan,    'BitmapIndexScan': BitmapIndexScan,    'BitmapHeapScan': BitmapHeapScan,
-    'TidScan': TidScan,    'TidRangeScan': TidRangeScan,    'SubqueryScan': SubqueryScan,    'FunctionScan': FunctionScan,
+    'TidScan': TidScan,    'SubqueryScan': SubqueryScan,    'FunctionScan': FunctionScan,
     'ValuesScan': ValuesScan,    'TableFuncScan': TableFuncScan,    'CteScan': CteScan,    'NamedTuplestoreScan': NamedTuplestoreScan,
     'WorkTableScan': WorkTableScan,    'ForeignScan': ForeignScan,    'CustomScan': CustomScan,    'Material': Material,
-    'Memoize': Memoize,    'Sort': Sort,    'Group': Group,    'Agg': Agg,    'WindowAgg': WindowAgg,
+    'Sort': Sort,    'Group': Group,    'Agg': Agg,    'WindowAgg': WindowAgg,
     'Unique': Unique,    'Gather': Gather,    'GatherMerge': GatherMerge,    'Hash': Hash,    'SetOp': SetOp,
     'LockRows': LockRows,    'Limit': Limit,    'NestLoop': NestLoop,    'MergeJoin': MergeJoin,    'HashJoin': HashJoin,
+
+    # OpenTenBase
+    'SimpleSort': SimpleSort, 'RemoteQuery': RemoteQuery, 'RemoteSubplan': RemoteSubplan, 'RemoteParam': RemoteParam, 'Distribution': Distribution,
+    'RemoteSubPath': RemoteSubPath,
 }
 
 def split_field(s):
@@ -378,6 +370,8 @@ def gen_printer_class(name, fields):
 class CommonPrinter(BasePrinter):
     def to_string(self):
         self.type = node_type(self.val)
+        if self.type == 'Integer' or self.type == 'Float' or self.type == 'String' or self.type == 'BitString':
+            return cast(self.val.address, 'Value').dereference()
         return cast(self.val.address, self.type).dereference()
 
 @register_printer('A_Star')
@@ -385,51 +379,20 @@ class A_StarPrinter(BasePrinter):
     def to_string(self):
         return '*'
 
-def gen_val_printer_class(name):
-    class Printer(BasePrinter):
-        def to_string(self):
-            vt = node_type(self.val)
-            ret = ''
-            if vt == 'Integer':
-                ret += str(self.val['ival'])
-            elif vt == 'Boolean':
-                ret += bool(self.val['boolval'])
-            elif vt == 'Float':
-                ret += getchars(self.val['fval'])
-            elif vt == 'String':
-                ret += getchars(self.val['sval'])
-            elif vt == 'BitString':
-                ret += getchars(self.val['bsval'])
-            return '{} [ {} ]'.format(vt, ret)
-
-    Printer.__name__ = name
-    return Printer
-
-val_printer = ['Integer', 'Boolean', 'Float', 'String', 'BitString']
-
-@register_printer('ValUnion')
-class ValUnionPrinter(BasePrinter):
+@register_printer('Value')
+class ValuePrinter(BasePrinter):
     def to_string(self):
-        vt = str(self.val['node']['type'])[2:]
+        vt = str(self.val['type'])[2:]
         ret = ''
         if vt == 'Integer':
-            ret += str(self.val['ival']['ival'])
-        elif vt == 'Float':
-            ret += getchars(self.val['fval']['fval'])
-        elif vt == 'Boolean':
-            ret += str(self.val['boolval']['boolval'])
-        elif vt == 'BitString':
-            ret += getchars(self.val['bsval']['bsval'])
-        elif vt == 'String':
-            ret += getchars(self.val['sval']['sval'])
-        return '{} [ {} ]'.format(vt, ret)
+            ret += str(self.val['val']['ival'])
+        elif vt == 'Float' or vt == 'BitString' or vt == 'String':
+            ret += getchars(self.val['val']['str'])
+        return '{}[ {} ]'.format(vt, ret)
 
 def generate_printer():
     for name, s in pl.items():
         pointerx = gen_printer_class(name, split_field(s))
-        printer.add_printer(name, '^' + name + '$', pointerx)
-    for name in val_printer:
-        pointerx = gen_val_printer_class(name)
         printer.add_printer(name, '^' + name + '$', pointerx)
 
 generate_printer()
@@ -437,7 +400,7 @@ generate_printer()
 
 class ListIt(object):
     def __init__(self, list) -> None:
-        self.elements = list['elements']
+        self.head = list['head']
         self.size = list['length']
         self.count = 0
 
@@ -451,7 +414,8 @@ class ListIt(object):
         if self.count == self.size:
             raise StopIteration
 
-        node = self.elements[self.count]
+        node = self.head
+        self.head = node['next']
         self.count += 1
         return node
 
@@ -470,11 +434,11 @@ class ListPrinter:
         def __next__(self):
             node = next(self.it)
             if str(self.type) == 'List':
-                node = cast(node['ptr_value'], 'Node').dereference()
+                node = cast(node['data']['ptr_value'], 'Node').dereference()
             elif str(self.type) == 'IntList':
-                node = int(node['int_value'])
+                node = int(node['data']['int_value'])
             else:
-                node = int(node['oid_value'])
+                node = int(node['data']['oid_value'])
 
             result = (str(self.count), node)
             self.count += 1

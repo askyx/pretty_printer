@@ -3,8 +3,6 @@
 This GDB pretty printer provides a more informative representation of PostgreSQL pointer objects, making it easier to debug PostgreSQL programs.
 
 
-
-
 ### How to use
 
 
@@ -61,28 +59,22 @@ $2 = Query {commandType: CMD_SELECT, querySource: QSRC_ORIGINAL, queryId: 0, can
 }
 ```
 
+support different print level, `show print pg_print` will display current level, and you can set print level by `set print pg_print` command, support level:
+  * off  
+      close pretty printer
+  * origin  
+      like build-in function `pprint`, but some type can not print if it is not inherite from `Node`.
+  * trace  
+      like `pprint`, but work by python script, print all object what you want, and you can alse add new printer for new type.
+  * info[TODO]  
+      Omit some unnecessary information.
+
 ### Features
 
-* easy to add new printer for new PostgreSQL types
-* support all PostgreSQL types, including composite types, arrays, and range types
-* different print level
-  * off  
-      close 
-  * origin
-  * trace
+* easy to add new printer for new PostgreSQL type, you can add a new type struct in `node_struct.py` file.
+* support all most PostgreSQL types, now support 360 types. you can list printer in gdb by `info pretty-printer` command.
 
 
-### Print Level (TODO)
-
-* off
-* oringin
-  like pprint
-  * can not call in core file, need call func
-* trace
-  like pprint， buf in python
-  * work anywhere
-* info
-  * call some func to eval pointer
 
 ### Add your pretty printer
 

@@ -44,14 +44,14 @@ set logging enabled
 
 handle SIGUSR1 noprint nostop
  
-b planner.c:420
+b planner.c:422
 command
     p * parse
     p * best_path
     c
 end
 
-b planner.c:520
+b planner.c:537
 command
     p * top_plan
     c
