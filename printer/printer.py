@@ -182,7 +182,7 @@ def bms_next_member(val, prevbit, bit_per_w):
 @register_printer('Bitmapset')
 class BitmapsetPrinter(BasePrinter):
     def to_string(self):
-        return getchars(gdb.parse_and_eval('nodeToString({})'.format(self.val.reference_value().address)), False)
+        return getchars(gdb.parse_and_eval('bmsToString({})'.format(self.val.reference_value().address)), False)
         # do it by yourself, flowing code is not work, it may cause 'maximum recursion depth exceeded in comparison' error
         # why? anything wrong with my code?
         # if we want run this to debug a core file, must resolve this issue first.
@@ -198,7 +198,7 @@ class BitmapsetPrinter(BasePrinter):
 @register_printer('Relids')
 class RelidsPrinter(BasePrinter):
     def to_string(self):
-        return getchars(gdb.parse_and_eval('nodeToString({})'.format(self.val.referenced_value().address)), False)
+        return getchars(gdb.parse_and_eval('bmsToString({})'.format(self.val.referenced_value().address)), False)
 
 pl = {
     'Alias': Alias,                         'RangeVar': RangeVar,               'TableFunc': TableFunc,             'IntoClause': IntoClause,
@@ -546,8 +546,6 @@ class printVerbose(gdb.Parameter):
             return 'Current value is {}, Print all objects like ''pprint'' but in python, work anywhere'.format(self.value)
         elif self.value == 'info':
             return 'Current value is {}, Trying to call some built-in functions to simple object, but may loss of information'.format(self.value)
-
-printVerbose()
 
 def register_postgres_printers(obj):
     gdb.printing.register_pretty_printer(obj, printer, True)
