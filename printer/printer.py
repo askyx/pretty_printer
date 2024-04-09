@@ -6,7 +6,7 @@ import operator
 
 from . import node_struct
 
-printer = gdb.printing.RegexpCollectionPrettyPrinter('REL_16_STABLE')
+printer = gdb.printing.RegexpCollectionPrettyPrinter('Greenplum-7.0.0')
 
 def register_printer(name):
     def __registe(_printer):
@@ -101,6 +101,7 @@ class BasePrinter:
         v = reduce(operator.getitem, k, self.val)
         if str(v) != '0x0':
             if re.search('^parent$', k[-1]):
+                # if str(v['relids']) != '(b)':
                 list += [(arg, v['relids'])]
             else:
                 list += [(arg, v.dereference())]
@@ -133,26 +134,30 @@ class BasePrinter:
         return list
 
     def plan_to_string(self, plan):
-        return '(cost={:.2f}..{:.2f} rows={:.0f} width={:.0f} async_capable={} plan_id={} parallel_aware={} parallel_safe = {})'.format(
+        return '(cost={:.2f}..{:.2f} rows={:.0f} width={:.0f} operatorMemKB={} plan_id={} parallel_aware={} parallel_safe = {})'.format(
             float(plan['startup_cost']),
             float(plan['total_cost']),
             float(plan['plan_rows']),
             float(plan['plan_width']),
-            int(plan['async_capable']),
+            int(plan['operatorMemKB']),
             int(plan['plan_node_id']),
             bool(plan['parallel_aware']),
             bool(plan['parallel_safe'])
         )
     
     def path_to_string(self, path):
-        return '{} (cost={:.2f}..{:.2f} rows={:.0f} parallel_aware={} parallel_safe={} parallel_workers={})'.format(
+        return '{} (cost={:.2f}..{:.2f} rows={:.0f} memo={:.2f} parallel_aware={} parallel_safe={} parallel_workers={} motionHazard={} rescannable={} sameslice_relids={})'.format(
             path['pathtype'],
             float(path['startup_cost']),
             float(path['total_cost']),
             float(path['rows']),
+            float(path['memory']),
             bool(path['parallel_aware']),
             bool(path['parallel_safe']),
             int(path['parallel_workers']),
+            bool(path['motionHazard']),
+            bool(path['rescannable']),
+            path['sameslice_relids'],
         )
 
     def display_hint(self):
@@ -259,6 +264,8 @@ def gen_printer_class(name, fields):
 class CommonPrinter(BasePrinter):
     def to_string(self):
         self.type = node_type(self.val)
+        if self.type == 'Integer' or self.type == 'Float' or self.type == 'String' or self.type == 'BitString':
+            return cast(self.val.address, 'Value').dereference()
         return cast(self.val.address, self.type).dereference()
 
 @register_printer('A_Star')
@@ -266,61 +273,19 @@ class A_StarPrinter(BasePrinter):
     def to_string(self):
         return '*'
 
-def gen_val_printer_class(name):
-    class Printer(BasePrinter):
-        def to_string(self):
-            vt = node_type(self.val)
-            ret = ''
-            if vt == 'Integer':
-                ret += str(self.val['ival'])
-            elif vt == 'Boolean':
-                ret += bool(self.val['boolval'])
-            elif vt == 'Float':
-                ret += getchars(self.val['fval'])
-            elif vt == 'String':
-                ret += getchars(self.val['sval'])
-            elif vt == 'BitString':
-                ret += getchars(self.val['bsval'])
-            return '{} [ {} ]'.format(vt, ret)
-
-    Printer.__name__ = name
-    return Printer
-
-val_printer = ['Integer', 'Boolean', 'Float', 'String', 'BitString']
-
-@register_printer('ValUnion')
-class ValUnionPrinter(BasePrinter):
-    def to_string(self):
-        vt = str(self.val['node']['type'])[2:]
-        ret = ''
-        if vt == 'Integer':
-            ret += str(self.val['ival']['ival'])
-        elif vt == 'Float':
-            ret += getchars(self.val['fval']['fval'])
-        elif vt == 'Boolean':
-            ret += str(self.val['boolval']['boolval'])
-        elif vt == 'BitString':
-            ret += getchars(self.val['bsval']['bsval'])
-        elif vt == 'String':
-            ret += getchars(self.val['sval']['sval'])
-        return '{} [ {} ]'.format(vt, ret)
-
 def generate_printer():
     for node in dir(node_struct):
         if not node.startswith('__'):
             struct = getattr(node_struct, node)
             pointerx = gen_printer_class(node, split_field(struct))
             printer.add_printer(node, '^' + node + '$', pointerx)
-    for name in val_printer:
-        pointerx = gen_val_printer_class(name)
-        printer.add_printer(name, '^' + name + '$', pointerx)
 
 generate_printer()
 
 
 class ListIt(object):
     def __init__(self, list) -> None:
-        self.elements = list['elements']
+        self.head = list['head']
         self.size = list['length']
         self.count = 0
 
@@ -334,7 +299,8 @@ class ListIt(object):
         if self.count == self.size:
             raise StopIteration
 
-        node = self.elements[self.count]
+        node = self.head
+        self.head = node['next']
         self.count += 1
         return node
 
@@ -353,11 +319,11 @@ class ListPrinter:
         def __next__(self):
             node = next(self.it)
             if str(self.type) == 'List':
-                node = cast(node['ptr_value'], 'Node').dereference()
+                node = cast(node['data']['ptr_value'], 'Node').dereference()
             elif str(self.type) == 'IntList':
-                node = int(node['int_value'])
+                node = int(node['data']['int_value'])
             else:
-                node = int(node['oid_value'])
+                node = int(node['data']['oid_value'])
 
             result = (str(self.count), node)
             self.count += 1
@@ -379,6 +345,16 @@ class ListPrinter:
         else:
             return 'array'
 
+@register_printer('Value')
+class ValuePrinter(BasePrinter):
+    def to_string(self):
+        vt = str(self.val['type'])[2:]
+        ret = ''
+        if vt == 'Integer':
+            ret += str(self.val['val']['ival'])
+        elif vt == 'Float' or vt == 'BitString' or vt == 'String':
+            ret += getchars(self.val['val']['str'])
+        return '{}[ {} ]'.format(vt, ret)
 
 
 # @register_printer('Const')

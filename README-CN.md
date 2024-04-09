@@ -49,6 +49,12 @@ $2 = Query {commandType: CMD_SELECT, querySource: QSRC_ORIGINAL, queryId: 0, can
 }
 ```
 
+### support
+
+- PostgreSQL 16
+- Greenplum-7.0.0
+
+maybe some error, only tested tpch and some simple queries. but it easy to fix.
 
 ### Add your pretty printer
 

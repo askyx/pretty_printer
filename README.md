@@ -57,6 +57,13 @@ $2 = Query {commandType: CMD_SELECT, querySource: QSRC_ORIGINAL, queryId: 0, can
 
 more examples can be found in the [test](./test) directory.
 
+### support
+
+- PostgreSQL 16
+- Greenplum-7.0.0
+
+maybe some error, only tested tpch and some simple queries. but it easy to fix.
+
 ### Add your pretty printer
 
 1. add you node strucutre to [`printer/node_struct.py`](./printer/node_struct.py) file.

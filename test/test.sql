@@ -648,7 +648,6 @@ order by
 
 
 -- Q22
-set grammar to postgres;
 select
   cntrycode,
   count(*) as numcust,
