@@ -1,3 +1,7 @@
+<p align="center">
+  <br>A generator for quickly generating GDB pretty printers for PostgreSQL.<br>
+</p>
+
 ## PostgreSQL Pretty Printer Generator for GDB
 
 This GDB pretty printer provides a more informative representation of PostgreSQL pointer objects, making it easier to debug PostgreSQL programs.
