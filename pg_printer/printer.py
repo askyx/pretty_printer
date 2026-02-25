@@ -1,4 +1,5 @@
 import gdb
+import gdb.printing
 import string
 import re
 from functools import reduce
