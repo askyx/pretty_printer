@@ -262,6 +262,12 @@ class ListPrinter:
         else:
             return 'array'
 
+@register_printer('(Node|Expr)')
+class CommonPrinter(Printer):
+    def to_string(self):
+        self.type = self.node_type()
+        return cast2ptr(self.val.address, self.type).dereference()
+
 class PrinterGenerator:
     def __init__(self, val) -> None:
         self.val = val
@@ -275,12 +281,16 @@ class PrinterGenerator:
                               'parent_ec', 'left_ec', 'right_ec', 'scansel_cache', 'initValue', 'location',
 
                               'simple_rel_array', 'simple_rel_array_size', 'sortgrouprefs',
-                              'sortColIdx', 'sortOperators', 'collations', 'nullsFirst',    # Sort
-                              'dupColIdx', 'dupOperators', 'dupCollations',                 # RecursiveUnion
-                              'mergeFamilies', 'mergeCollations', 'mergeStrategies', 'mergeNullsFirst',  # MergeJoin
-                              'hashOperators', # Memoize
-                              'grpColIdx','grpOperators','grpCollations',  # Group
                               ]
+
+    def get_array(self, convert_func, val, keys, numCols):
+        slist = []
+        if numCols > 0:
+            values = ([convert_func(val[key][i]) for i in range(numCols)] for key in keys)
+            self.not_printable += keys
+            for key, value in zip(keys, values):
+                slist.append((key, str(value)))
+        return slist
 
     def printable(self, name):
         return name not in self.not_printable
@@ -432,33 +442,26 @@ class PlanPrinterGenerator(PrinterGenerator):
 
         return fields
 
-    def get_array(self, val, keys, numCols):
-        slist = []
-        if numCols > 0:
-            values = ([int(val[key][i]) for i in range(numCols)] for key in keys)
-            for key, value in zip(keys, values):
-                slist.append((key, str(value)))
-        return slist
 
     def print_sort(self, val):
         numCols = int(val['numCols'])
-        self.array_filed = self.get_array(val, ['sortColIdx','sortOperators', 'collations', 'nullsFirst'], numCols)
+        self.array_filed = self.get_array(int, val, ['sortColIdx','sortOperators', 'collations', 'nullsFirst'], numCols)
     
     def print_RecursiveUnion_array(self, val):
         numCols = int(val['numCols'])
-        self.array_filed = self.get_array(val, ['dupColIdx', 'dupOperators', 'dupCollations'], numCols)
+        self.array_filed = self.get_array(int, val, ['dupColIdx', 'dupOperators', 'dupCollations'], numCols)
 
     def print_Memoize_array(self, val):
         numCols = int(val['numKeys'])
-        self.array_filed = self.get_array(val, ['hashOperators', 'collations'], numCols)
+        self.array_filed = self.get_array(int, val, ['hashOperators', 'collations'], numCols)
     
     def print_Group_array(self, val):
         numCols = int(val['numCols'])
-        self.array_filed = self.get_array(val, ['grpColIdx', 'grpOperators', 'grpCollations'], numCols)
+        self.array_filed = self.get_array(int, val, ['grpColIdx', 'grpOperators', 'grpCollations'], numCols)
 
     def print_MergeJoin_array(self, val):
         numCols = int(val['mergeclauses']['length'])
-        self.array_filed = self.get_array(val, ['mergeFamilies','mergeCollations','mergeStrategies', 'mergeNullsFirst'], numCols)
+        self.array_filed = self.get_array(int, val, ['mergeFamilies','mergeCollations','mergeStrategies', 'mergeNullsFirst'], numCols)
 
     def common_to_string(self):
         fields = []
@@ -525,14 +528,17 @@ class PlanPrinterGenerator(PrinterGenerator):
                 for i in self.array_filed:
                     yield i
 
-@register_printer('(Node|Expr)')
-class CommonPrinter(Printer):
-    def to_string(self):
-        self.type = self.node_type()
-        return cast2ptr(self.val.address, self.type).dereference()
-
 # printer for basic object
 class NodePrinterGnerator(PrinterGenerator):
+    def __init__(self, val) -> None:
+        super().__init__(val)
+        self.type = get_type(self.val)
+        self.array_filed = []
+        if self.type in ['IndexOptInfo']:
+            numCols = int(val['ncolumns'])
+            self.array_filed += self.get_array(int, val, ['indexkeys','indexcollations', 'opfamily', 'opcintype', 'sortopfamily'], numCols)
+            self.array_filed += self.get_array(bool, val, ['reverse_sort', 'nulls_first', 'canreturn'], numCols)
+
     def common_to_string(self):
         fields = []
         node = get_type(self.val)
@@ -555,6 +561,9 @@ class NodePrinterGnerator(PrinterGenerator):
         return node + ' {' + ', '.join(fields) + '}'
 
     def common_children(self):
+        for i in self.array_filed:
+            yield i
+
         for field in self.val.type.fields():
             if self.printable(field.name):
                 # char * printed in common_to_string
