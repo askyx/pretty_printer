@@ -538,6 +538,9 @@ class NodePrinterGnerator(PrinterGenerator):
             numCols = int(val['ncolumns'])
             self.array_filed += self.get_array(int, val, ['indexkeys','indexcollations', 'opfamily', 'opcintype', 'sortopfamily'], numCols)
             self.array_filed += self.get_array(bool, val, ['reverse_sort', 'nulls_first', 'canreturn'], numCols)
+        elif self.type == 'AppendRelInfo':
+            numCols = int(val['num_child_cols'])
+            self.array_filed = self.get_array(int, val, ['parent_colnos'], numCols)
 
     def common_to_string(self):
         fields = []
