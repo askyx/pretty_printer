@@ -409,6 +409,10 @@ class PlanPrinterGenerator(PrinterGenerator):
             self.print_Group_array(self.extend_plan)
         elif self.type == 'MergeJoin':
             self.print_MergeJoin_array(self.extend_plan)
+        elif self.type == 'Unique':
+            self.print_Unique_array(self.extend_plan)
+        elif self.type == 'SetOp':
+            self.print_SetOp_array(self.extend_plan)
 
     def plan_to_string(self):
         plan = self.basic_plan
@@ -462,6 +466,14 @@ class PlanPrinterGenerator(PrinterGenerator):
     def print_MergeJoin_array(self, val):
         numCols = int(val['mergeclauses']['length'])
         self.array_filed = self.get_array(int, val, ['mergeFamilies','mergeCollations','mergeStrategies', 'mergeNullsFirst'], numCols)
+
+    def print_Unique_array(self, val):
+        numCols = int(val['numCols'])
+        self.array_filed = self.get_array(int, val, ['uniqColIdx','uniqOperators','uniqCollations'], numCols)
+
+    def print_SetOp_array(self, val):
+        numCols = int(val['numCols'])
+        self.array_filed = self.get_array(int, val, ['cmpColIdx','cmpOperators','cmpCollations', 'cmpNullsFirst'], numCols)
 
     def common_to_string(self):
         fields = []
@@ -524,7 +536,7 @@ class PlanPrinterGenerator(PrinterGenerator):
                             else:
                                 yield (field.name, self.extend_plan[field.name].dereference())
 
-            if self.type in ['RecursiveUnion', 'Memoize', 'Group', 'Agg', 'MergeJoin']:
+            if self.type in ['RecursiveUnion', 'Memoize', 'Group', 'Agg', 'MergeJoin', 'Unique', 'SetOp']:
                 for i in self.array_filed:
                     yield i
 
